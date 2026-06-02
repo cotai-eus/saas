@@ -1,0 +1,214 @@
+# =============================================================================
+# SaaS Local Ecosystem
+# Stack: Traefik v3.7 | Keycloak v26.6 | OAuth2-Proxy v7.15
+# =============================================================================
+
+name: saas-local
+
+networks:
+  proxy:
+    name: proxy
+    driver: bridge
+  internal:
+    name: internal
+    driver: bridge
+    internal: true   # sem acesso direto à internet
+
+volumes: 
+  keycloak_db_data:
+  keycloak_data:
+
+services:
+
+  # ===========================================================================
+  # TRAEFIK v3.7 — Reverse Proxy / API Gateway
+  # ===========================================================================
+  traefik:
+    image: traefik:v3.7@sha256:6b9cbca6fac42ab0075f5437d8dc1685cfd188626d8d515839ea94f8b6271c42
+    container_name: traefik
+    restart: unless-stopped
+    networks:
+      - proxy
+      - internal
+    ports:
+      - "80:80"
+      - "443:443"
+      # Dashboard exposto apenas em localhost (nunca em prod)
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/config:/etc/traefik/config:ro
+      - ./traefik/certs:/certs:ro
+    labels:
+      - "traefik.enable=true"
+      # Dashboard — protegido por BasicAuth (usuário: admin / senha: changeme)
+      - "traefik.http.routers.traefik-dashboard.rule=Host(`traefik.local.dev`)"
+      - "traefik.http.routers.traefik-dashboard.entrypoints=websecure"
+      - "traefik.http.routers.traefik-dashboard.tls=true"
+      - "traefik.http.routers.traefik-dashboard.service=api@internal"
+      - "traefik.http.routers.traefik-dashboard.middlewares=basic-auth@file"
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ===========================================================================
+  # POSTGRESQL — Backend do Keycloak
+  # ===========================================================================
+  keycloak-db:
+    image: postgres:16-alpine@sha256:16bc17c64a573ef34162af9298258d1aec548232985b33ed7b1eac33ba35c229
+    container_name: keycloak-db
+    restart: unless-stopped
+    networks:
+      - internal
+    environment:
+      POSTGRES_DB:       ${KC_DB_NAME:-keycloak}
+      POSTGRES_USER:     ${KC_DB_USER:-keycloak}
+      POSTGRES_PASSWORD: ${KC_DB_PASSWORD:?KC_DB_PASSWORD is required}
+    volumes:
+      - keycloak_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${KC_DB_USER:-keycloak}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================================================
+  # KEYCLOAK v26.6 — Identity Provider (IdP)
+  # ===========================================================================
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.6@sha256:f9ba7b2af90db8dc749a57ca9aedca51e840cb9224441ab546a968da941da900
+    container_name: keycloak
+    restart: unless-stopped
+    networks:
+      - proxy
+      - internal
+    command: start --import-realm
+    environment:
+      # --- Banco de dados ---
+      KC_DB:               postgres
+      KC_DB_URL:           jdbc:postgresql://keycloak-db:5432/${KC_DB_NAME:-keycloak}
+      KC_DB_USERNAME:      ${KC_DB_USER:-keycloak}
+      KC_DB_PASSWORD:      ${KC_DB_PASSWORD:?KC_DB_PASSWORD is required}
+      # --- Admin Bootstrap (apenas no primeiro start) ---
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_ADMIN_USER:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_ADMIN_PASSWORD:?KC_ADMIN_PASSWORD is required}
+      # --- Proxy / TLS ---
+      KC_PROXY_HEADERS:    xforwarded
+      KC_HTTP_ENABLED:     "true"
+      KC_HOSTNAME:         auth.local.dev
+      KC_HOSTNAME_STRICT:  "false"
+      # --- Performance ---
+      KC_CACHE:            local
+      KC_FEATURES:         token-exchange,admin-fine-grained-authz
+      # --- Logging ---
+      KC_LOG_LEVEL:        INFO
+      # --- Enable health and metrics support ---
+      KC_HEALTH_ENABLED: "true"
+      KC_HTTP_MANAGEMENT_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+      - ./keycloak/realm-saas-local.json:/opt/keycloak/data/import/realm-saas-local.json:ro
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.keycloak.rule=Host(`auth.local.dev`)"
+      - "traefik.http.routers.keycloak.entrypoints=websecure"
+      - "traefik.http.routers.keycloak.tls=true"
+      - "traefik.http.routers.keycloak.middlewares=security-headers@file"
+      - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >
+          bash -c 'exec 3<>/dev/tcp/localhost/9000 &&
+          printf "GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n" >&3 &&
+          grep "200" <&3'
+      interval: 20s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  # ===========================================================================
+  # OAUTH2-PROXY v7.15 — Middleware de Autenticação para as Apps
+  # ===========================================================================
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:latest-alpine@sha256:8caf464e485b9cad9ff02aaed4a48e6aef358cc968065e1b1716e920c1ac5f5c
+    container_name: oauth2-proxy
+    restart: unless-stopped
+    networks:
+      - proxy
+      - internal
+    extra_hosts:
+      - "auth.local.dev:host-gateway"
+    command:
+      - --config=/etc/oauth2-proxy/oauth2-proxy.cfg
+    environment:
+      # Segredos injetados via env (nunca hard-coded)
+      OAUTH2_PROXY_CLIENT_SECRET:  ${OAUTH2_PROXY_CLIENT_SECRET:?required}
+      OAUTH2_PROXY_COOKIE_SECRET:  ${OAUTH2_PROXY_COOKIE_SECRET:?required}
+    volumes:
+      - ./oauth2-proxy/oauth2-proxy.cfg:/etc/oauth2-proxy/oauth2-proxy.cfg:ro
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      # Rota pública do callback OAuth2
+      - "traefik.http.routers.oauth2-proxy.rule=Host(`app.local.dev`) && PathPrefix(`/oauth2`)"
+      - "traefik.http.routers.oauth2-proxy.entrypoints=websecure"
+      - "traefik.http.routers.oauth2-proxy.tls=true"
+      - "traefik.http.routers.oauth2-proxy.priority=100"
+      - "traefik.http.services.oauth2-proxy.loadbalancer.server.port=4180"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:4180/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ===========================================================================
+  # APP 1 — SaaS protegida pelo OAuth2-Proxy
+  # ===========================================================================
+  app1:
+    image: traefik/whoami:latest    # substitua pela sua imagem real
+    container_name: app1
+    restart: unless-stopped
+    networks:
+      - proxy
+      - internal
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.app1.rule=Host(`app.local.dev`)"
+      - "traefik.http.routers.app1.entrypoints=websecure"
+      - "traefik.http.routers.app1.tls=true"
+      # Aplica os middlewares: oauth2 auth + security headers
+      - "traefik.http.routers.app1.middlewares=oauth2-auth@file,security-headers@file"
+      - "traefik.http.services.app1.loadbalancer.server.port=80"
+
+  # ===========================================================================
+  # APP 2 — API interna (JWT Bearer, sem redirect de browser)
+  # ===========================================================================
+  app2:
+    image: traefik/whoami:latest    # substitua pela sua imagem real
+    container_name: app2
+    restart: unless-stopped
+    networks:
+      - proxy
+      - internal
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.app2.rule=Host(`api.local.dev`)"
+      - "traefik.http.routers.app2.entrypoints=websecure"
+      - "traefik.http.routers.app2.tls=true"
+      # Apenas security headers — validação JWT feita via ForwardAuth ou na app
+      - "traefik.http.routers.app2.middlewares=security-headers@file,rate-limit@file"
+      - "traefik.http.services.app2.loadbalancer.server.port=80"

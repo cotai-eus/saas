@@ -1,0 +1,20 @@
+# Segredos — NUNCA commitar
+.env
+*.env.local
+*.env.production
+
+# Certificados TLS
+traefik/certs/
+
+# Dados persistentes
+keycloak_data/
+postgres_data/
+
+# Editor
+.idea/
+.vscode/
+*.swp
+*~
+
+# macOS
+.DS_Store

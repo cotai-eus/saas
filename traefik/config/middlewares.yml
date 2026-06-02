@@ -1,0 +1,116 @@
+# =============================================================================
+# traefik/config/middlewares.yml — Configuração Dinâmica: Middlewares
+# =============================================================================
+
+http:
+
+  middlewares:
+
+    # -------------------------------------------------------------------------
+    # BasicAuth — Protege o Dashboard do Traefik
+    # Gere a senha: echo $(htpasswd -nB admin) | sed -e 's/\$/\$\$/g'
+    # -------------------------------------------------------------------------
+    basic-auth:
+      basicAuth:
+        users:
+          # admin:changeme  ← troque em produção
+          - "admin:$$2y$$05$$Vv9Ct7OiPqanfr0J5T3fEO3.0JpIK3kEOkjXAG9VECMuHGNDrUSDC"
+        removeHeader: true
+
+    # -------------------------------------------------------------------------
+    # ForwardAuth — Delega autenticação ao OAuth2-Proxy
+    # Usado nos roteadores das apps que requerem login SSO
+    # -------------------------------------------------------------------------
+    oauth2-auth:
+      forwardAuth:
+        address: "http://oauth2-proxy:4180/oauth2/auth"
+        trustForwardHeader: true
+        authResponseHeaders:
+          # Injeta claims do token nos headers da requisição upstream
+          - "X-Auth-Request-User"
+          - "X-Auth-Request-Email"
+          - "X-Auth-Request-Groups"
+          - "X-Auth-Request-Access-Token"
+          - "Authorization"
+
+    # -------------------------------------------------------------------------
+    # Security Headers — OWASP best practices
+    # -------------------------------------------------------------------------
+    security-headers:
+      headers:
+        # HSTS: força HTTPS por 1 ano (incluindo subdomínios)
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        # Previne clickjacking
+        frameDeny: true
+        # Previne MIME-sniffing
+        contentTypeNosniff: true
+        # XSS Protection legado (IE)
+        browserXssFilter: true
+        # Referrer Policy
+        referrerPolicy: "strict-origin-when-cross-origin"
+        # CSP básico — ajuste conforme necessidade da app
+        contentSecurityPolicy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'"
+        # Permissions Policy
+        permissionsPolicy: "camera=(), microphone=(), geolocation=(), payment=()"
+        # Remove headers que expõem stack info
+        customResponseHeaders:
+          X-Powered-By: ""
+          Server: ""
+
+    # -------------------------------------------------------------------------
+    # CORS — Para rotas de API (app2 / api.local.dev)
+    # -------------------------------------------------------------------------
+    cors-api:
+      headers:
+        accessControlAllowMethods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+          - OPTIONS
+        accessControlAllowHeaders:
+          - "Content-Type"
+          - "Authorization"
+          - "X-Requested-With"
+        accessControlAllowOriginList:
+          - "https://app.local.dev"
+        accessControlMaxAge: 86400
+        addVaryHeader: true
+
+    # -------------------------------------------------------------------------
+    # Rate Limiting — Proteção básica contra abuso
+    # -------------------------------------------------------------------------
+    rate-limit:
+      rateLimit:
+        average: 100    # requisições por período
+        burst: 50       # pico permitido
+        period: 1m
+        sourceCriterion:
+          ipStrategy:
+            depth: 1    # usa o IP real (X-Forwarded-For depth=1)
+
+    # -------------------------------------------------------------------------
+    # Strip Prefix — Remove prefixos de path antes de repassar upstream
+    # -------------------------------------------------------------------------
+    strip-api-prefix:
+      stripPrefix:
+        prefixes:
+          - "/api/v1"
+
+    # -------------------------------------------------------------------------
+    # Retry — Resiliência para serviços instáveis
+    # -------------------------------------------------------------------------
+    retry:
+      retry:
+        attempts: 3
+        initialInterval: 100ms
+
+    # -------------------------------------------------------------------------
+    # Compress — Gzip automático para responses grandes
+    # -------------------------------------------------------------------------
+    compress:
+      compress:
+        minResponseBodyBytes: 1024
