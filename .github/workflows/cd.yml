@@ -1,6 +1,3 @@
-# =============================================================================
-# cd.yml — Multi-Environment Continuous Deployment
-# =============================================================================
 name: CD
 
 on:
@@ -18,16 +15,21 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        # Multi-environment support
         environment: [staging, production]
-    
-    # Restrict deployment to specific branch if needed
+
     if: github.event_name == 'workflow_dispatch' || (github.ref == 'refs/heads/main' && matrix.environment == 'staging')
-    
+
     environment: ${{ matrix.environment }}
 
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Build CLI
+        run: make build
 
       - name: Configure Environment Variables
         run: |
@@ -45,8 +47,5 @@ jobs:
           SAAS_API_CLIENT_SECRET: ${{ secrets.SAAS_API_CLIENT_SECRET }}
           TRAEFIK_DASHBOARD_PASSWORD_HASH: ${{ secrets.TRAEFIK_DASHBOARD_PASSWORD_HASH }}
         run: |
-          # Use setup.sh to generate the .env from GitHub Variables and Secrets
-          BASE_DOMAIN=$BASE_DOMAIN ./setup.sh
-          
-          # Deploy using Docker Compose
+          ./ctl setup --domain "$BASE_DOMAIN" --env prod --no-interactive --skip-tls
           cd infra && docker compose up -d --build

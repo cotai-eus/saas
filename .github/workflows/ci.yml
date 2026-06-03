@@ -1,10 +1,76 @@
-# .github/workflows/ci.yml
 name: CI
 on: [push, pull_request]
+
 jobs:
-  test:
+  test-backend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Run tests
-        run: echo "Running tests..."
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          pip install --no-cache-dir ".[dev]"
+      - name: Run backend tests
+        run: |
+          cd backend
+          pytest -v
+
+  test-cli:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+      - name: Run CLI tests
+        run: |
+          cd tools/ctl
+          go test ./... -v
+
+  test-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+      - name: Run frontend tests
+        run: |
+          cd frontend
+          npm test
+
+  lint-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install lint dependencies
+        run: |
+          cd backend
+          pip install --no-cache-dir ".[dev]" ruff
+      - name: Lint backend
+        run: |
+          cd backend
+          ruff check src/ tests/ --no-cache --ignore E402,F401 --line-length=120
+
+  lint-cli:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+      - name: Lint CLI
+        run: |
+          cd tools/ctl
+          go vet ./...
+          test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)

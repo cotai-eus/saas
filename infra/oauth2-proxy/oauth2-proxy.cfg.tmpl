@@ -23,7 +23,7 @@ cookie_expire   = "24h"
 cookie_refresh  = "1h"
 cookie_domains = [".${BASE_DOMAIN}"]
 
-upstreams = ["http://app1:80"]
+upstreams = ["http://backend:8000"]
 
 email_domains = ["*"]
 allowed_roles = ["user"]
@@ -47,7 +47,7 @@ oidc_audience_claims = "aud"
 skip_jwt_bearer_tokens = true
 
 # Environment variable OAUTH2_PROXY_SSL_INSECURE
-ssl_insecure_skip_verify = ${OAUTH2_PROXY_SSL_INSECURE:-false}
+ssl_insecure_skip_verify = ${OAUTH2_PROXY_SSL_INSECURE}
 
 # Logging
 standard_logging = true

@@ -154,7 +154,7 @@ services:
 
   # ── OAUTH2-PROXY ───────────────────────────────────────────────────────────
   oauth2-proxy:
-    image: quay.io/oauth2-proxy/oauth2-proxy:latest-alpine@sha256:8caf464e485b9cad9ff02aaed4a48e6aef358cc968065e1b1716e920c1ac5f5c
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.15.0-alpine@sha256:8caf464e485b9cad9ff02aaed4a48e6aef358cc968065e1b1716e920c1ac5f5c
     container_name: ${COMPOSE_PROJECT_NAME:-saas}-oauth2-proxy
     restart: unless-stopped
     networks: [proxy, internal]
@@ -198,34 +198,53 @@ services:
       timeout: 5s
       retries: 3
 
-  # ── APP 1 ──────────────────────────────────────────────────────────────────
-  app1:
-    image: traefik/whoami:latest
-    container_name: ${COMPOSE_PROJECT_NAME:-saas}-app1
+  # ── BACKEND (Python / FastAPI) ─────────────────────────────────────────────
+  backend:
+    build: ../backend/
+    container_name: ${COMPOSE_PROJECT_NAME:-saas}-backend
     restart: unless-stopped
     networks: [proxy, internal]
+    environment:
+      DB_NAME:     ${DB_NAME:-saas}
+      DB_USER:     ${DB_USER:-saas}
+      DB_PASSWORD: ${DB_PASSWORD:?required}
+      DB_HOST:     ${DB_HOST:-app-db}
+      DB_PORT:     ${DB_PORT:-5432}
+    depends_on:
+      app-db:
+        condition: service_healthy
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"
-      - "traefik.http.routers.app1.rule=Host(`${APP_HOST}`)"
-      - "traefik.http.routers.app1.entrypoints=websecure"
-      - "traefik.http.routers.app1.tls=true"
-      - "traefik.http.routers.app1.tls.certresolver=${TLS_RESOLVER}"
-      - "traefik.http.routers.app1.middlewares=oauth2-auth@file,security-headers@file"
-      - "traefik.http.services.app1.loadbalancer.server.port=80"
+      - "traefik.http.routers.backend.rule=Host(`${APP_HOST}`)"
+      - "traefik.http.routers.backend.entrypoints=websecure"
+      - "traefik.http.routers.backend.tls=true"
+      - "traefik.http.routers.backend.tls.certresolver=${TLS_RESOLVER}"
+      - "traefik.http.routers.backend.middlewares=oauth2-auth@file,security-headers@file"
+      - "traefik.http.services.backend.loadbalancer.server.port=8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # ── APP 2 ──────────────────────────────────────────────────────────────────
-  app2:
-    image: traefik/whoami:latest
-    container_name: ${COMPOSE_PROJECT_NAME:-saas}-app2
+  # ── FRONTEND (Vite + React) ────────────────────────────────────────────────
+  frontend:
+    build: ../frontend/
+    container_name: ${COMPOSE_PROJECT_NAME:-saas}-frontend
     restart: unless-stopped
     networks: [proxy, internal]
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"
-      - "traefik.http.routers.app2.rule=Host(`${API_HOST}`)"
-      - "traefik.http.routers.app2.entrypoints=websecure"
-      - "traefik.http.routers.app2.tls=true"
-      - "traefik.http.routers.app2.tls.certresolver=${TLS_RESOLVER}"
-      - "traefik.http.routers.app2.middlewares=security-headers@file,rate-limit@file"
-      - "traefik.http.services.app2.loadbalancer.server.port=80"
+      - "traefik.http.routers.frontend.rule=Host(`${API_HOST}`)"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls=true"
+      - "traefik.http.routers.frontend.tls.certresolver=${TLS_RESOLVER}"
+      - "traefik.http.routers.frontend.middlewares=security-headers@file,rate-limit@file"
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
