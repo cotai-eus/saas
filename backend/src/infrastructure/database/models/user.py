@@ -2,8 +2,9 @@ import uuid
 from datetime import datetime
 from typing import Optional, List
 from sqlalchemy import String, DateTime, text, ForeignKey, Boolean, ARRAY
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from infrastructure.database.base import Base
+
 
 class User(Base):
     __tablename__ = "users"
@@ -21,3 +22,7 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"), onupdate=text("CURRENT_TIMESTAMP"))
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+
+    tenant = relationship("Tenant", back_populates="users")
+    audit_logs = relationship("AuditLog", back_populates="user")
+    sessions = relationship("Session", back_populates="user")

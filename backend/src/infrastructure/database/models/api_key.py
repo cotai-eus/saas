@@ -2,8 +2,9 @@ import uuid
 from datetime import datetime
 from typing import Optional, List
 from sqlalchemy import String, DateTime, text, ForeignKey, Boolean, ARRAY, Integer
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from infrastructure.database.base import Base
+
 
 class APIKey(Base):
     __tablename__ = "api_keys"
@@ -18,3 +19,5 @@ class APIKey(Base):
     last_used_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
     expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+
+    tenant = relationship("Tenant", back_populates="api_keys")

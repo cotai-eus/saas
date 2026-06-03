@@ -5,6 +5,7 @@ from sqlalchemy import String, DateTime, text, Boolean, ARRAY, Integer
 from sqlalchemy.orm import Mapped, mapped_column
 from infrastructure.database.base import Base
 
+
 class FeatureFlag(Base):
     __tablename__ = "feature_flags"
 

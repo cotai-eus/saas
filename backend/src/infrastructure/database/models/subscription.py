@@ -2,8 +2,9 @@ import uuid
 from datetime import datetime
 from typing import Optional
 from sqlalchemy import String, DateTime, text, ForeignKey, BigInteger, Integer
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from infrastructure.database.base import Base
+
 
 class Subscription(Base):
     __tablename__ = "subscriptions"
@@ -21,3 +22,5 @@ class Subscription(Base):
     canceled_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"), onupdate=text("CURRENT_TIMESTAMP"))
+
+    tenant = relationship("Tenant", back_populates="subscription")

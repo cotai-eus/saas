@@ -2,8 +2,9 @@ import uuid
 from datetime import datetime
 from typing import Optional
 from sqlalchemy import String, DateTime, text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from infrastructure.database.base import Base
+
 
 class Tenant(Base):
     __tablename__ = "tenants"
@@ -16,3 +17,9 @@ class Tenant(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"), onupdate=text("CURRENT_TIMESTAMP"))
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+
+    users = relationship("User", back_populates="tenant")
+    subscription = relationship("Subscription", back_populates="tenant", uselist=False)
+    api_keys = relationship("APIKey", back_populates="tenant")
+    audit_logs = relationship("AuditLog", back_populates="tenant")
+    sessions = relationship("Session", back_populates="tenant")

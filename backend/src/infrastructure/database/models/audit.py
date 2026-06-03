@@ -1,10 +1,11 @@
 import uuid
 from datetime import datetime
 from typing import Optional
-from sqlalchemy import String, DateTime, text, ForeignKey, BigInteger, JSON
+from sqlalchemy import String, DateTime, text, ForeignKey, BigInteger
 from sqlalchemy.dialects.postgresql import INET, JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from infrastructure.database.base import Base
+
 
 class AuditLog(Base):
     __tablename__ = "audit_logs"
@@ -20,3 +21,6 @@ class AuditLog(Base):
     ip_address: Mapped[Optional[str]] = mapped_column(INET)
     user_agent: Mapped[Optional[str]] = mapped_column(String(500))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
+
+    tenant = relationship("Tenant", back_populates="audit_logs")
+    user = relationship("User", back_populates="audit_logs")

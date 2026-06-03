@@ -1,8 +1,12 @@
 pyproject.toml
 src/api/__init__.py
+src/api/routers/__init__.py
+src/api/routers/auth.py
+src/api/routers/health.py
 src/application/__init__.py
 src/domain/__init__.py
 src/infrastructure/__init__.py
+src/infrastructure/settings.py
 src/infrastructure/database/__init__.py
 src/infrastructure/database/base.py
 src/infrastructure/database/session.py

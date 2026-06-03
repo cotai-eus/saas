@@ -1,10 +1,10 @@
-import os
 import httpx
 from jose import jwt, JWTError
 from jose.constants import Algorithms
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response, JSONResponse
+from infrastructure.settings import settings
 
 JWKS_CACHE = None
 JWKS_ISSUER = None
@@ -12,8 +12,7 @@ JWKS_ISSUER = None
 
 async def fetch_jwks():
     global JWKS_CACHE, JWKS_ISSUER
-    auth_host = os.getenv("AUTH_HOST", "auth.local.dev")
-    issuer = f"https://{auth_host}/realms/saas"
+    issuer = f"https://{settings.auth_host}/realms/saas"
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get(
@@ -27,7 +26,7 @@ async def fetch_jwks():
             jwks_resp.raise_for_status()
             JWKS_CACHE = jwks_resp.json()
             JWKS_ISSUER = issuer
-    except Exception as e:
+    except Exception:
         JWKS_CACHE = None
         JWKS_ISSUER = issuer
 
