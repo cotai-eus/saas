@@ -1,6 +1,13 @@
 .git
 .gitignore
-__pycache__/
-*.pyc
 .env
+.env.local
+.env.production.local
 node_modules/
+dist/
+build/
+.vite/
+.vscode/
+.idea/
+tests/
+README.md

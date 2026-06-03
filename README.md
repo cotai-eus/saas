@@ -1,9 +1,10 @@
-# SaaS Local — Guia de Configuração
-## Stack: Traefik v3.7 · Keycloak v26.6 · OAuth2-Proxy v7.15 · Go CLI
+# SaaS Platform — Ambiente de Desenvolvimento Local
+
+Stack: **Traefik v3.7** · **Keycloak v26.6** · **OAuth2-Proxy v7.15** · **PostgreSQL 16** · **Python/FastAPI** · **React 19 / Vite**
 
 ---
 
-## Visão Geral da Arquitetura
+## Arquitetura
 
 ```
 Internet / Browser
@@ -11,250 +12,242 @@ Internet / Browser
         ▼
   ┌──────────────────────────────────────────┐
   │           TRAEFIK v3.7                   │
-  │  (Reverse Proxy / API Gateway)           │
+  │  Reverse Proxy / API Gateway             │
   │  :80 → redirect HTTPS                    │
   │  :443 → TLS termination                  │
-  └───┬──────────┬──────────┬────────────────┘
-      │          │          │
-      ▼          ▼          ▼
-  auth.local  app.local  api.local
-      │          │          │
-      │       ForwardAuth   │
-      │          │          │
-      │     ┌────▼────────┐ │
-      │     │ OAUTH2-PROXY│ │
-      │     │   v7.15     │ │
-      │     └────┬────────┘ │
-      │          │ OIDC     │
-      ▼          ▼          │
-  ┌──────────────────────┐  │
-  │   KEYCLOAK v26.6     │  │
-  │   (IdP / OIDC)       │◄─┘ JWT validation
-  │   realm: saas-local  │
-  └──────────────────────┘
-      │          │
-  ┌───▼───┐  ┌──▼──────────────┐
-  │  PG   │  │  app1   app2    │
-  │  DB   │  │  (suas apps)    │
-  └───────┘  └─────────────────┘
+  └────┬──────────┬──────────┬───────────────┘
+       │          │          │
+       ▼          ▼          ▼
+  auth.{d}    app.{d}    api.{d}
+  (Keycloak)  (Frontend) (Backend)
+       │          │          │
+       │          │    ForwardAuth
+       │          │          │
+       │          │    ┌────▼────────┐
+       │          │    │ OAUTH2-PROXY│
+       │          │    │   v7.15     │
+       │          │    └────┬────────┘
+       │          │         │ OIDC
+       ▼          ▼         ▼
+  ┌──────────────────────────────┐
+  │        KEYCLOAK v26.6        │
+  │     IdP / OIDC / realm: saas │
+  └──────────┬───────────────────┘
+             │
+    ┌────────┴────────┐
+    ▼                 ▼
+  PG DBs          FastAPI
+  (keycloak       (Backend)
+   + app)            │
+                     ▼
+                  React SPA
+                  (Frontend, Nginx)
 ```
 
-### Fluxo de Autenticação (Browser)
+### Fluxo de Autenticação
 
 ```
-1. Usuário acessa https://app.local.dev
-2. Traefik chama oauth2-proxy via ForwardAuth (middleware)
-3. OAuth2-Proxy verifica cookie de sessão
-   → Não existe: redireciona para https://auth.local.dev/realms/saas-local/...
-4. Keycloak autentica o usuário (login/senha, MFA, etc.)
-5. Keycloak emite código de autorização → redireciona para /oauth2/callback
-6. OAuth2-Proxy troca o código por tokens (ID token, Access token)
-7. OAuth2-Proxy cria cookie de sessão e redireciona para a app
-8. Traefik injeta headers X-Auth-Request-* no request para a app
-9. App recebe requisição autenticada com dados do usuário
+1. Usuário acessa https://app.{domain} (Frontend React SPA)
+2. Frontend faz chamadas AJAX para https://api.{domain} (Backend FastAPI)
+3. Traefik → middleware oauth2-auth → ForwardAuth para oauth2-proxy:4180
+4. Sem cookie de sessão → redirect para https://auth.{domain}/realms/saas/...
+5. Keycloak autentica (login, MFA, etc.)
+6. Código de autorização → redirect para /oauth2/callback
+7. OAuth2-Proxy troca código por tokens (ID + Access)
+8. Cookie de sessão criado → redirect para api.{domain}
+9. Traefik injeta headers X-Auth-Request-* no request
+10. Backend FastAPI recebe JWT validado com info do usuário
 ```
+
+### Rotas e Serviços
+
+| Domínio | Serviço | Middleware | Descrição |
+|---|---|---|---|
+| `traefik.{domain}` | Dashboard Traefik | basic-auth | Monitoramento do proxy |
+| `auth.{domain}` | Keycloak | security-headers | Identity Provider (OIDC) |
+| `app.{domain}` | Nginx (React SPA) | security-headers + rate-limit | Frontend React |
+| `api.{domain}` | FastAPI (Backend) | oauth2-auth + security-headers | API SaaS protegida |
+| `/oauth2/*` | OAuth2-Proxy | — | Callback OIDC |
+
+---
+
+## Stack
+
+### Infraestrutura
+- **Traefik** — reverse proxy com TLS, Let's Encrypt, e pipeline de middlewares (auth, security headers, rate-limit, CORS)
+- **Keycloak** — IdP OIDC com realm `saas`, clientes `oauth2-proxy` (web) e `saas-api` (machine-to-machine), brute-force protection, grupos e roles
+- **OAuth2-Proxy** — proxy de autenticação OIDC que valida sessões e injeta headers de identidade
+- **PostgreSQL 16** — dois bancos isolados na rede `internal` (keycloak-db + app-db)
+
+### Aplicação
+- **Backend** — Python/FastAPI com validação JWT (RS256, JWKS cache), SQLAlchemy + Alembic, multi-tenant via Row-Level Security do PostgreSQL
+- **Frontend** — React 19 + TypeScript + Vite 6, servido por Nginx (multi-stage build)
+
+### CLI (Go)
+- **`ctl`** — CLI em Go com Cobra + Bubbletea TUI para setup e gerenciamento do stack
+- Gera CA própria + certificado wildcard `*.{domain}`
+- Cria `.env` com segredos aleatórios
+- Orquestra Docker Compose (up, down, logs, status, clean)
 
 ---
 
 ## Pré-requisitos
 
 ```bash
-# Docker
-docker --version
-
-# Go (para compilar o CLI)
-go version
-
-# mkcert (opcional, o CLI gera certificados próprios)
-# macOS
-brew install mkcert
-# Ubuntu/Debian
-sudo apt install libnss3-tools
-curl -fsSL https://github.com/FiloSottile/mkcert/releases/latest/download/mkcert-v*-linux-amd64 \
-  -o /usr/local/bin/mkcert && chmod +x /usr/local/bin/mkcert
+docker --version       # Docker + Compose v2
+go version             # Go 1.22+ (para compilar o CLI)
+mkcert                # opcional — o CLI gera seus próprios certificados
 ```
 
 ---
 
-## Setup Inicial
-
-### 1. Compile o CLI
+## Setup Rápido
 
 ```bash
+# 1. Compila o CLI
 make build
-# ou manualmente:
-go build -C tools/ctl -o ../../ctl .
+
+# 2. Setup interativo (CA, certificados, .env, rede Docker)
+make setup
+
+# 3. Sobe o stack completo
+make up
+make status
 ```
 
-### 2. Execute o setup interativo
+O comando `make setup` executa o TUI interativo que:
+1. Solicita o domínio (default: `local.dev`)
+2. Pergunta o ambiente (dev, staging, prod)
+3. Oferece backup de arquivos existentes
+4. Gera CA ECDSA P-256 + certificado wildcard
+5. Gera `.env` com senhas aleatórias
+6. Cria a rede Docker `proxy`
+
+Para CI/CD:
 
 ```bash
-./ctl setup
+make setup-ci   # equivalente a: ./ctl setup --no-interactive
 ```
 
-O CLI irá:
-- Gerar CA própria + certificado wildcard `*.local.dev`
-- Criar o arquivo `.env` com segredos aleatórios
-- Criar a rede Docker `proxy`
-- Fazer backup de arquivos existentes (opcional)
+---
 
-Para CI/CD, use o modo não-interativo:
+## Comandos
+
+| Comando | Descrição |
+|---|---|
+| `make build` ou `make build-linux` | Compila o CLI Go → `./ctl` |
+| `make setup` | Setup interativo do ambiente |
+| `make up` | Sobe todos os serviços |
+| `make down` | Para todos os serviços |
+| `make logs` | Logs do stack |
+| `make status` | Status dos serviços |
+| `make clean` | Remove containers |
+| `make clean-all` | Remove containers, volumes e certificados |
+| `make restart` | Reinicia o stack |
+| `./ctl logs <service>` | Logs de um serviço específico |
+
+Também é possível usar o binário diretamente:
 
 ```bash
 ./ctl setup --domain example.com --env prod --no-interactive
-```
-
-### 3. Configure o Keycloak
-
-Aguarde o Keycloak ficar healthy (± 60s):
-
-```bash
-./ctl logs keycloak
-# Aguarde: "Keycloak 26.6.x started"
-```
-
-O realm é importado automaticamente do template. O compose usa `envsubst` para
-substituir variáveis do `.env` no `realm-template.json`.
-
-### 4. Suba o stack completo
-
-```bash
 ./ctl up
-./ctl status   # verifique que todos estão healthy
+./ctl status
 ```
 
 ---
 
-## Comandos do CLI
-
-| Comando | Descrição |
-|---------|-----------|
-| `./ctl setup` | Setup interativo do ambiente |
-| `./ctl up` | Inicia todos os serviços |
-| `./ctl down` | Para todos os serviços |
-| `./ctl logs` | Logs do stack |
-| `./ctl status` | Status dos serviços |
-| `./ctl clean` | Remove containers (e opcionalmente volumes/certificados) |
-
----
-
-## Estrutura de Arquivos
+## Estrutura do Projeto
 
 ```
 saas/
-├── Makefile                        # Build targets
+├── Makefile                        # Targets: build, setup, up, down, logs, status, clean
 ├── ctl                             # CLI compilado (Go)
 │
 ├── infra/
-│   ├── docker-compose.yml          # Orquestração principal
-│   ├── .env                        # Segredos (não commitar)
+│   ├── docker-compose.yml          # Orquestração dos 6 serviços
+│   ├── .env                        # Segredos (não versionar)
 │   ├── traefik/
-│   │   ├── traefik.yml             # Config estática
-│   │   ├── certs/                  # Certificados TLS
+│   │   ├── traefik.yml             # Config estática (entrypoints, TLS, providers)
+│   │   ├── certs/                  # CA + wildcard (gerados pelo setup)
 │   │   └── config/
-│   │       └── middlewares.yml     # Config dinâmica
+│   │       ├── middlewares.yml     # Config dinâmica (auth, headers, rate-limit)
+│   │       └── .htpasswd           # BasicAuth do dashboard
 │   ├── keycloak/
-│   │   └── realm-template.json     # Template do realm OIDC
+│   │   └── realm-template.json     # Realm OIDC com envsubst
 │   └── oauth2-proxy/
-│       └── oauth2-proxy.cfg.tmpl   # Config template
+│       └── oauth2-proxy.cfg.tmpl   # Config template com envsubst
 │
 ├── backend/                        # Python / FastAPI
-│   ├── Dockerfile
-│   ├── pyproject.toml
+│   ├── Dockerfile                  # python:3.12-slim, usuário não-root
+│   ├── pyproject.toml              # FastAPI, SQLAlchemy, Alembic, python-jose
+│   ├── alembic/                    # Migrations (001_initial_schema com RLS)
 │   └── src/
-│       ├── main.py                 # App FastAPI + middlewares
-│       ├── middleware/             # JWT auth + tenant RLS
+│       ├── main.py                 # FastAPI app com JWKS middleware
+│       ├── api/routers/            # health, auth (/me)
+│       ├── middleware/             # JWT auth + tenant context
+│       ├── domain/                 # Entidades de domínio
+│       ├── application/            # Casos de uso
 │       └── infrastructure/
-│           └── database/           # Models ORM, session
+│           ├── settings.py         # Config via pydantic-settings
+│           └── database/
+│               ├── models/         # Tenant, User, Subscription, AuditLog, Session, APIKey, FeatureFlag
+│               ├── session.py      # Engine + scoped session com RLS
+│               └── base.py         # DeclarativeBase
 │
 ├── frontend/                       # React 19 / Vite / TypeScript
-│   ├── Dockerfile                  # Multi-stage (nginx)
+│   ├── Dockerfile                  # Multi-stage: node:20-alpine → nginx:stable-alpine
+│   ├── package.json                # React 19, Vite 6, Vitest, Testing Library
 │   └── src/
-│       └── App.tsx
+│       ├── main.tsx                # Entry point React 19
+│       └── App.tsx                 # Componente inicial
 │
-└── tools/ctl/                      # Go CLI (Cobra + Bubbletea)
+└── tools/ctl/                      # Go CLI (Cobra + Bubbletea + Lipgloss)
     ├── main.go
-    ├── cmd/                        # Comandos: setup, up, down, etc.
-    └── internal/                   # Cert, env, secrets, backup, tui
+    ├── cmd/                        # root, setup, up, down, logs, status, clean
+    └── internal/
+        ├── setup/                  # Orquestração do setup
+        ├── tui/                    # Bubbletea TUI interativo
+        ├── cert/                   # Geração CA + wildcard ECDSA
+        ├── env/                    # Geração .env com .env.example embutido
+        ├── secrets/                # Geração de segredos cripto-aleatórios
+        ├── backup/                 # Backup com rotação de arquivos
+        └── infra/                  # Docker network + docker compose executor
 ```
-
----
-
-## Domínios e Serviços
-
-| Domínio | Serviço | Middleware | Descrição |
-|---|---|---|---|
-| `traefik.local.dev` | Dashboard Traefik | BasicAuth | Monitoramento do proxy |
-| `auth.local.dev` | Keycloak | security-headers | IdP / SSO |
-| `app.local.dev` | Frontend + Backend | oauth2-auth + security-headers | App SaaS protegida |
-| `api.local.dev` | (reservado) | security-headers + rate-limit | API interna |
 
 ---
 
 ## Segurança
 
-### O que está implementado
-
-- ✅ TLS obrigatório (HTTP → HTTPS redirect automático)
-- ✅ Certificados auto-assinados via CA própria
-- ✅ Headers de segurança OWASP (HSTS, CSP, X-Frame-Options, etc.)
-- ✅ Rede Docker `internal` isolada (bancos não acessíveis externamente)
-- ✅ Docker socket montado como **read-only**
-- ✅ `exposedByDefault: false` no Traefik (princípio do menor privilégio)
-- ✅ Segredos injetados via variáveis de ambiente (não hard-coded)
-- ✅ Rate limiting nas rotas de API
-- ✅ Brute-force protection no Keycloak
+### Implementado
+- ✅ TLS obrigatório (HTTP → HTTPS automático)
+- ✅ CA própria + wildcard `*.{domain}`
+- ✅ Headers OWASP (HSTS, CSP, X-Frame-Options, etc.)
+- ✅ Rede `internal` isolada (bancos inacessíveis externamente)
+- ✅ Docker socket read-only
+- ✅ `exposedByDefault: false` (princípio do menor privilégio)
+- ✅ Segredos injetados via ambiente (não hard-coded)
+- ✅ Rate limiting (100 req/min, burst 50)
+- ✅ Brute-force protection (5 falhas → 900s bloqueio)
 - ✅ Cookies HttpOnly + Secure + SameSite=Lax
 - ✅ Headers sensíveis removidos dos logs de acesso
-- ✅ Validação JWT com JWKS do Keycloak
-- ✅ Isolamento multi-tenant via RLS do PostgreSQL
+- ✅ Validação JWT com JWKS cache
+- ✅ Multi-tenant via RLS do PostgreSQL
+- ✅ Senhas com política de 12+ caracteres
 
-### Para produção, adicione
-
-- [ ] Let's Encrypt (já configurado no Traefik, ativar com `TLS_RESOLVER=letsencrypt`)
-- [ ] `ssl_insecure_skip_verify = false` no oauth2-proxy.cfg
-- [ ] Keycloak com `KC_HOSTNAME_STRICT: "true"`
+### Para produção
+- [ ] Let's Encrypt (`TLS_RESOLVER=letsencrypt` + email)
+- [ ] `OAUTH2_PROXY_SSL_INSECURE=false`
+- [ ] `KC_HOSTNAME_STRICT: "true"` (já configurado)
 - [ ] Secrets gerenciados por Vault ou Docker Secrets
 - [ ] MFA obrigatório no Keycloak
 - [ ] Restrição de `email_domains` no oauth2-proxy
-- [ ] Backup automático do volume `keycloak_db_data`
-- [ ] Alertas de falha de login no Keycloak
-
----
-
-## Troubleshooting
-
-**`ERR_CERT_AUTHORITY_INVALID` no browser**
-```bash
-sudo cp infra/traefik/certs/rootCA.pem /usr/local/share/ca-certificates/ && sudo update-ca-certificates
-# Reinicie o browser completamente após isso
-```
-
-**OAuth2-Proxy retorna `500 Internal Server Error`**
-```bash
-./ctl logs oauth2-proxy
-# Verifique: OAUTH2_PROXY_CLIENT_SECRET correto? Keycloak healthy?
-```
-
-**Keycloak não inicia (erro de DB)**
-```bash
-./ctl logs keycloak-db
-./ctl up
-```
-
-**ForwardAuth retorna 401 inesperado**
-```bash
-# Verifique se o cookie_domain está correto
-# Cookie deve cobrir: .local.dev (com ponto inicial)
-./ctl logs oauth2-proxy | grep -i "error\|invalid\|failed"
-```
+- [ ] Backup automático dos volumes
 
 ---
 
 ## Desenvolvimento
 
 ### Backend
-
 ```bash
 cd backend
 pip install -e ".[dev]"
@@ -262,7 +255,6 @@ uvicorn src.main:app --reload --port 8000
 ```
 
 ### Frontend
-
 ```bash
 cd frontend
 npm install
@@ -270,14 +262,44 @@ npm run dev
 ```
 
 ### Testes
-
 ```bash
-# Backend
-cd backend && pytest -v
+make test                    # ou individualmente:
+cd backend && pytest -v      # Python/FastAPI
+cd frontend && npm test      # React/Vitest
+cd tools/ctl && go test ./... -v  # Go CLI
+```
 
-# CLI
-cd tools/ctl && go test ./... -v
+### CI/CD
+O repositório inclui workflows GitHub Actions:
+- **CI** — testes e lint nos 3 projetos (Python, Go, React)
+- **CD** — deploy automatizado para staging/production
+- **Security** — scan de segurança (placeholder)
 
-# Frontend
-cd frontend && npm test
+---
+
+## Troubleshooting
+
+**`ERR_CERT_AUTHORITY_INVALID` no browser**
+```bash
+sudo cp infra/traefik/certs/rootCA.pem /usr/local/share/ca-certificates/
+sudo update-ca-certificates
+# Reinicie o browser
+```
+
+**OAuth2-Proxy retorna `500`**
+```bash
+./ctl logs oauth2-proxy
+# Verifique OAUTH2_PROXY_CLIENT_SECRET e se Keycloak está healthy
+```
+
+**Keycloak não inicia**
+```bash
+./ctl logs keycloak-db   # verifica o banco
+./ctl up                 # tenta novamente
+```
+
+**ForwardAuth retorna 401**
+```bash
+./ctl logs oauth2-proxy | grep -i "error\|invalid\|failed"
+# Cookie domain deve cobrir .{domain} (com ponto inicial)
 ```

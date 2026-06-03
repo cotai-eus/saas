@@ -16,3 +16,5 @@ src/
 ```
 
 Layered architecture: routes call `Depends(get_db)` for DB access — no session opened otherwise. JWT auth via `JWTAuthMiddleware` with JWKS cache. Settings via `pydantic-settings`, shared with Alembic.
+
+Acessível em `https://api.{domain}` via Traefik (atrás do OAuth2-Proxy).
