@@ -27,7 +27,7 @@
       "description": "Client para o OAuth2-Proxy (SSO das apps)",
       "enabled": true,
       "clientAuthenticatorType": "client-secret",
-      "secret": "saas-local-oauth2-proxy-secret",
+      "secret": "${OAUTH2_PROXY_CLIENT_SECRET}",
       "redirectUris": [
         "https://app.local.dev/oauth2/callback"
       ],
@@ -87,7 +87,7 @@
       "description": "Client M2M para comunicação entre serviços",
       "enabled": true,
       "clientAuthenticatorType": "client-secret",
-      "secret": "saas-local-saas-api-secret",
+      "secret": "${SAAS_API_CLIENT_SECRET}",
       "protocol": "openid-connect",
       "publicClient": false,
       "standardFlowEnabled": false,
@@ -127,6 +127,47 @@
       "credentials": [
         {
           "type": "password",
+          "value": "Test@12345678",
+          "temporary": true
+        }
+      ],
+      "realmRoles": ["user"],
+      "groups": ["/app-users"]
+    }
+  ],
+
+  "passwordPolicy": "length(12) and upperCase(1) and lowerCase(1) and digits(1) and specialChars(1) and notUsername(undefined)",
+
+  "smtpServer": {},
+
+  "loginTheme": "keycloak",
+  "internationalizationEnabled": true,
+  "supportedLocales": ["pt-BR", "en"],
+  "defaultLocale": "pt-BR"
+}
+bled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Test@12345678",
+          "temporary": true
+        }
+      ],
+      "realmRoles": ["user"],
+      "groups": ["/app-users"]
+    }
+  ],
+
+  "passwordPolicy": "length(12) and upperCase(1) and lowerCase(1) and digits(1) and specialChars(1) and notUsername(undefined)",
+
+  "smtpServer": {},
+
+  "loginTheme": "keycloak",
+  "internationalizationEnabled": true,
+  "supportedLocales": ["pt-BR", "en"],
+  "defaultLocale": "pt-BR"
+}
           "value": "Test@12345678",
           "temporary": true
         }

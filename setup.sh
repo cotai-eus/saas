@@ -12,6 +12,8 @@ ok()   { echo -e "${GREEN}[OK]${NC} $*"; }
 warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
 err()  { echo -e "${RED}[ERR]${NC} $*"; exit 1; }
 
+ENV_FILE="infra/.env"
+
 # ---------------------------------------------------------------------------
 # 1. Verifica dependências
 # ---------------------------------------------------------------------------
@@ -28,11 +30,11 @@ log "Instalando CA do mkcert no sistema..."
 mkcert -install
 
 log "Gerando certificado wildcard para *.local.dev..."
-mkdir -p traefik/certs
-mkcert -cert-file traefik/certs/local.dev.crt \
-       -key-file  traefik/certs/local.dev.key \
+mkdir -p infra/traefik/certs
+mkcert -cert-file infra/traefik/certs/local.dev.crt \
+       -key-file  infra/traefik/certs/local.dev.key \
        "local.dev" "*.local.dev"
-ok "Certificados gerados em traefik/certs/"
+ok "Certificados gerados em infra/traefik/certs/"
 
 # ---------------------------------------------------------------------------
 # 3. Entradas no /etc/hosts
@@ -54,16 +56,57 @@ for host in "${HOSTS[@]}"; do
 done
 
 # ---------------------------------------------------------------------------
-# 4. Gera Cookie Secret para o OAuth2-Proxy (se não existir no .env)
+# 4. Gera Secrets para o Stack (se não existir no .env)
 # ---------------------------------------------------------------------------
-if [ -f .env ] && grep -q "COLE_O_VALOR_GERADO_PELO_OPENSSL_AQUI" .env; then
-  log "Gerando OAUTH2_PROXY_COOKIE_SECRET..."
+if [ ! -f "$ENV_FILE" ]; then
+  log "Criando $ENV_FILE a partir de placeholders..."
+  cat <<EOF > "$ENV_FILE"
+# Keycloak DB
+KC_DB_NAME=keycloak
+KC_DB_USER=keycloak
+KC_DB_PASSWORD=TROQUE_ESTA_SENHA_FORTE_DB
+
+# App DB
+DB_NAME=saas
+DB_USER=saas
+DB_PASSWORD=TROQUE_ESTA_SENHA_FORTE_APP_DB
+DB_HOST=app-db
+DB_PORT=5432
+
+# Keycloak Admin
+KC_ADMIN_USER=admin
+KC_ADMIN_PASSWORD=TROQUE_ESTA_SENHA_FORTE_ADMIN
+
+# OAuth2-Proxy
+OAUTH2_PROXY_CLIENT_SECRET=COLE_O_VALOR_GERADO_PELO_OPENSSL_AQUI_1
+SAAS_API_CLIENT_SECRET=COLE_O_VALOR_GERADO_PELO_OPENSSL_AQUI_2
+OAUTH2_PROXY_COOKIE_SECRET=COLE_O_VALOR_GERADO_PELO_OPENSSL_AQUI_3
+
+# Traefik
+TRAEFIK_DASHBOARD_PASSWORD_HASH=\$\$2y\$\$05\$\$Vv9Ct7OiPqanfr0J5T3fEO3.0JpIK3kEOkjXAG9VECMuHGNDrUSDC
+EOF
+fi
+
+log "Configurando segredos em $ENV_FILE..."
+
+# Cookie Secret
+if grep -q "COLE_O_VALOR_GERADO_PELO_OPENSSL_AQUI_3" "$ENV_FILE"; then
   COOKIE_SECRET=$(openssl rand -base64 32 | tr '+/' '-_')
-  sed -i.bak "s|COLE_O_VALOR_GERADO_PELO_OPENSSL_AQUI|${COOKIE_SECRET}|" .env
-  rm -f .env.bak
-  ok "OAUTH2_PROXY_COOKIE_SECRET gerado e salvo no .env"
-else
-  warn "Pule geração do cookie — .env não encontrado ou já configurado."
+  sed -i "s|COLE_O_VALOR_GERADO_PELO_OPENSSL_AQUI_3|${COOKIE_SECRET}|" "$ENV_FILE"
+  ok "OAUTH2_PROXY_COOKIE_SECRET gerado"
+fi
+
+# Client Secrets
+if grep -q "COLE_O_VALOR_GERADO_PELO_OPENSSL_AQUI_1" "$ENV_FILE"; then
+  SECRET1=$(openssl rand -base64 32)
+  sed -i "s|COLE_O_VALOR_GERADO_PELO_OPENSSL_AQUI_1|${SECRET1}|" "$ENV_FILE"
+  ok "OAUTH2_PROXY_CLIENT_SECRET gerado"
+fi
+
+if grep -q "COLE_O_VALOR_GERADO_PELO_OPENSSL_AQUI_2" "$ENV_FILE"; then
+  SECRET2=$(openssl rand -base64 32)
+  sed -i "s|COLE_O_VALOR_GERADO_PELO_OPENSSL_AQUI_2|${SECRET2}|" "$ENV_FILE"
+  ok "SAAS_API_CLIENT_SECRET gerado"
 fi
 
 # ---------------------------------------------------------------------------
@@ -78,21 +121,21 @@ ok "Rede 'proxy' pronta"
 # ---------------------------------------------------------------------------
 echo ""
 log "Iniciando o stack..."
-docker compose up -d traefik keycloak-db keycloak
+# Nota: docker compose em infra/ detectará o .env automaticamente
+cd infra && docker compose up -d traefik keycloak-db keycloak app-db && cd ..
 
 echo ""
 ok "Stack iniciado! Próximos passos:"
 echo ""
-echo "  1. Aguarde o Keycloak ficar healthy:"
+echo "  1. Verifique os logs (do diretório infra/):"
 echo "     docker compose logs -f keycloak"
 echo ""
 echo "  2. Acesse o Admin Console do Keycloak:"
 echo "     https://auth.local.dev/admin"
 echo ""
-echo "  3. Importe o realm 'saas-local' com o client 'oauth2-proxy'"
-echo "     e confirme os mappers de groups e audience"
+echo "  3. Verifique se o realm 'saas-local' foi importado corretamente."
 echo ""
-echo "  4. Preencha o .env com KC_ADMIN_PASSWORD e OAUTH2_PROXY_CLIENT_SECRET"
+echo "  4. Configure o infra/.env com as senhas desejadas."
 echo ""
-echo "  5. Suba o stack completo:"
+echo "  5. Suba o stack completo (do diretório infra/):"
 echo "     docker compose up -d"

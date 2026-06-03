@@ -1,0 +1,10 @@
+# .github/workflows/security.yml
+name: Security
+on: [push]
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Security Scan
+        run: echo "Scanning..."

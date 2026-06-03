@@ -1,0 +1,12 @@
+# .github/workflows/cd.yml
+name: CD
+on:
+  push:
+    branches: [main]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy
+        run: echo "Deploying..."

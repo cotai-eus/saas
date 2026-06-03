@@ -25,6 +25,7 @@ http:
       forwardAuth:
         address: "http://oauth2-proxy:4180/oauth2/auth"
         trustForwardHeader: true
+        maxResponseBodySize: 1048576
         authResponseHeaders:
           # Injeta claims do token nos headers da requisição upstream
           - "X-Auth-Request-User"
@@ -50,8 +51,8 @@ http:
         browserXssFilter: true
         # Referrer Policy
         referrerPolicy: "strict-origin-when-cross-origin"
-        # CSP básico — ajuste conforme necessidade da app
-        contentSecurityPolicy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'"
+        # CSP robusto — Proteção contra XSS e Clickjacking (SEC-009)
+        contentSecurityPolicy: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
         # Permissions Policy
         permissionsPolicy: "camera=(), microphone=(), geolocation=(), payment=()"
         # Remove headers que expõem stack info

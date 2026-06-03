@@ -7,8 +7,7 @@ name: saas-local
 
 networks:
   proxy:
-    name: proxy
-    driver: bridge
+    external: true
   internal:
     name: internal
     driver: bridge
@@ -17,6 +16,7 @@ networks:
 volumes: 
   keycloak_db_data:
   keycloak_data:
+  app_db_data:
 
 services:
 
@@ -35,6 +35,8 @@ services:
       - "443:443"
       # Dashboard exposto apenas em localhost (nunca em prod)
       - "127.0.0.1:8080:8080"
+    environment:
+      - TRAEFIK_DASHBOARD_PASSWORD_HASH=${TRAEFIK_DASHBOARD_PASSWORD_HASH:?TRAEFIK_DASHBOARD_PASSWORD_HASH is required}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
@@ -76,6 +78,27 @@ services:
       retries: 5
 
   # ===========================================================================
+  # POSTGRESQL — Backend da Aplicação
+  # ===========================================================================
+  app-db:
+    image: postgres:16-alpine@sha256:16bc17c64a573ef34162af9298258d1aec548232985b33ed7b1eac33ba35c229
+    container_name: app-db
+    restart: unless-stopped
+    networks:
+      - internal
+    environment:
+      POSTGRES_DB:       ${DB_NAME:-saas}
+      POSTGRES_USER:     ${DB_USER:-saas}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+    volumes:
+      - app_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-saas}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================================================
   # KEYCLOAK v26.6 — Identity Provider (IdP)
   # ===========================================================================
   keycloak:
@@ -99,7 +122,7 @@ services:
       KC_PROXY_HEADERS:    xforwarded
       KC_HTTP_ENABLED:     "true"
       KC_HOSTNAME:         auth.local.dev
-      KC_HOSTNAME_STRICT:  "false"
+      KC_HOSTNAME_STRICT:  "true"
       # --- Performance ---
       KC_CACHE:            local
       KC_FEATURES:         token-exchange,admin-fine-grained-authz
