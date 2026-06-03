@@ -1,0 +1,9 @@
+# services/contacts/docker-compose.yml (ou no compose principal)
+labels:
+  - "traefik.enable=true"
+  - "traefik.http.routers.contacts.rule=Host(`app.domain.com`) && PathPrefix(`/api/contacts`)"
+  - "traefik.http.routers.contacts.middlewares=web-app@file"
+  - "traefik.http.routers.contacts.entrypoints=websecure"
+  - "traefik.http.routers.contacts.tls=true"
+  - "traefik.http.middlewares.contacts-strip.stripprefix.prefixes=/api/contacts"
+  - "traefik.http.services.contacts.loadbalancer.server.port=8000"

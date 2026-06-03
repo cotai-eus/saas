@@ -1,117 +1,71 @@
 # =============================================================================
-# traefik/config/middlewares.yml — Configuração Dinâmica: Middlewares
+# traefik/config/middlewares.yml — Agnostic Dynamic Configuration
 # =============================================================================
 
 http:
 
   middlewares:
 
-    # -------------------------------------------------------------------------
-    # BasicAuth — Protege o Dashboard do Traefik
-    # Gere a senha: echo $(htpasswd -nB admin) | sed -e 's/\$/\$\$/g'
-    # -------------------------------------------------------------------------
+    # ── BasicAuth ────────────────────────────────────────────────────────────
     basic-auth:
       basicAuth:
-        users:
-          # admin:changeme  ← troque em produção
-          - "admin:$$2y$$05$$Vv9Ct7OiPqanfr0J5T3fEO3.0JpIK3kEOkjXAG9VECMuHGNDrUSDC"
+        usersFile: "/etc/traefik/config/.htpasswd"
         removeHeader: true
 
-    # -------------------------------------------------------------------------
-    # ForwardAuth — Delega autenticação ao OAuth2-Proxy
-    # Usado nos roteadores das apps que requerem login SSO
-    # -------------------------------------------------------------------------
+    # ── ForwardAuth (SSO) ───────────────────────────────────────────────────
     oauth2-auth:
       forwardAuth:
         address: "http://oauth2-proxy:4180/oauth2/auth"
         trustForwardHeader: true
-        maxResponseBodySize: 1048576
         authResponseHeaders:
-          # Injeta claims do token nos headers da requisição upstream
           - "X-Auth-Request-User"
           - "X-Auth-Request-Email"
           - "X-Auth-Request-Groups"
           - "X-Auth-Request-Access-Token"
           - "Authorization"
 
-    # -------------------------------------------------------------------------
-    # Security Headers — OWASP best practices
-    # -------------------------------------------------------------------------
+    # ── Security Headers ─────────────────────────────────────────────────────
     security-headers:
       headers:
-        # HSTS: força HTTPS por 1 ano (incluindo subdomínios)
         stsSeconds: 31536000
         stsIncludeSubdomains: true
         stsPreload: true
-        # Previne clickjacking
         frameDeny: true
-        # Previne MIME-sniffing
         contentTypeNosniff: true
-        # XSS Protection legado (IE)
         browserXssFilter: true
-        # Referrer Policy
         referrerPolicy: "strict-origin-when-cross-origin"
-        # CSP robusto — Proteção contra XSS e Clickjacking (SEC-009)
+        # Relative CSP using 'self'
         contentSecurityPolicy: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
-        # Permissions Policy
         permissionsPolicy: "camera=(), microphone=(), geolocation=(), payment=()"
-        # Remove headers que expõem stack info
         customResponseHeaders:
           X-Powered-By: ""
           Server: ""
 
-    # -------------------------------------------------------------------------
-    # CORS — Para rotas de API (app2 / api.local.dev)
-    # -------------------------------------------------------------------------
+    # ── CORS ─────────────────────────────────────────────────────────────────
     cors-api:
       headers:
-        accessControlAllowMethods:
-          - GET
-          - POST
-          - PUT
-          - PATCH
-          - DELETE
-          - OPTIONS
+        accessControlAllowMethods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
         accessControlAllowHeaders:
           - "Content-Type"
           - "Authorization"
           - "X-Requested-With"
-        accessControlAllowOriginList:
-          - "https://app.local.dev"
+        # Dynamic regex based on BASE_DOMAIN injected at runtime
+        accessControlAllowOriginListRegex:
+          - "^https://[a-z0-9-]+\\.${BASE_DOMAIN}$"
         accessControlMaxAge: 86400
         addVaryHeader: true
 
-    # -------------------------------------------------------------------------
-    # Rate Limiting — Proteção básica contra abuso
-    # -------------------------------------------------------------------------
+    # ── Rate Limiting ────────────────────────────────────────────────────────
     rate-limit:
       rateLimit:
-        average: 100    # requisições por período
-        burst: 50       # pico permitido
+        average: 100
+        burst: 50
         period: 1m
         sourceCriterion:
           ipStrategy:
-            depth: 1    # usa o IP real (X-Forwarded-For depth=1)
+            depth: 1
 
-    # -------------------------------------------------------------------------
-    # Strip Prefix — Remove prefixos de path antes de repassar upstream
-    # -------------------------------------------------------------------------
-    strip-api-prefix:
-      stripPrefix:
-        prefixes:
-          - "/api/v1"
-
-    # -------------------------------------------------------------------------
-    # Retry — Resiliência para serviços instáveis
-    # -------------------------------------------------------------------------
-    retry:
-      retry:
-        attempts: 3
-        initialInterval: 100ms
-
-    # -------------------------------------------------------------------------
-    # Compress — Gzip automático para responses grandes
-    # -------------------------------------------------------------------------
+    # ── Compress ─────────────────────────────────────────────────────────────
     compress:
       compress:
         minResponseBodyBytes: 1024

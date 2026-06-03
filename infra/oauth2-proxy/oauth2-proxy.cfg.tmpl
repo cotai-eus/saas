@@ -1,16 +1,18 @@
 # =============================================================================
-# oauth2-proxy/oauth2-proxy.cfg — OAuth2-Proxy v7.15
+# oauth2-proxy.cfg.tmpl — OAuth2-Proxy Template
+# Variables: ${AUTH_HOST} ${APP_HOST} ${BASE_DOMAIN}
+#            ${OAUTH2_PROXY_CLIENT_ID} ${OAUTH2_PROXY_CLIENT_SECRET} ${OAUTH2_PROXY_COOKIE_SECRET}
 # =============================================================================
 
 provider = "keycloak-oidc"
-provider_display_name = "SaaS Local SSO"
-oidc_issuer_url = "https://auth.local.dev/realms/saas-local"
-client_id = "oauth2-proxy"
+provider_display_name = "SSO"
+oidc_issuer_url = "https://${AUTH_HOST}/realms/saas"
+client_id = "${OAUTH2_PROXY_CLIENT_ID}"
 scope = "openid email profile roles"
 oidc_groups_claim = "groups"
 oidc_email_claim = "email"
 
-redirect_url = "https://app.local.dev/oauth2/callback"
+redirect_url = "https://${APP_HOST}/oauth2/callback"
 http_address = "0.0.0.0:4180"
 
 cookie_name     = "_oauth2_proxy"
@@ -19,11 +21,11 @@ cookie_httponly = true
 cookie_samesite = "lax"
 cookie_expire   = "24h"
 cookie_refresh  = "1h"
-cookie_domains = [".local.dev"]
+cookie_domains = [".${BASE_DOMAIN}"]
 
 upstreams = ["http://app1:80"]
 
-email_domains = ["local.dev"]
+email_domains = ["*"]
 allowed_roles = ["user"]
 allowed_groups = ["/app-users"]
 
@@ -44,10 +46,9 @@ skip_auth_routes = [
 oidc_audience_claims = "aud"
 skip_jwt_bearer_tokens = true
 
-# ⚠️ APENAS PARA DESENVOLVIMENTO LOCAL
-ssl_insecure_skip_verify = true 
+# Environment variable OAUTH2_PROXY_SSL_INSECURE
+ssl_insecure_skip_verify = ${OAUTH2_PROXY_SSL_INSECURE:-false}
 
 # Logging
 standard_logging = true
 auth_logging     = true
-# request_logging  = true # Comentado para evitar o erro de duplicidade misteriosa

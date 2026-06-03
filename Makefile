@@ -1,28 +1,61 @@
-.PHONY: setup up down logs clean migrate-init migrate-up migrate-down
+BASE_DOMAIN ?= local.dev
+GO_RUN   := go run -C tools/ctl .
+GO_BUILD := go build -C tools/ctl -o ../../ctl .
 
+# ── Build ──────────────────────────────────────────────────────────────────────
+
+.PHONY: build
+build:
+	$(GO_BUILD)
+
+.PHONY: build-linux
+build-linux:
+	GOOS=linux GOARCH=amd64 $(GO_BUILD)
+
+# ── Setup ──────────────────────────────────────────────────────────────────────
+
+.PHONY: setup
 setup:
-	./setup.sh
+	$(GO_RUN) setup --domain $(BASE_DOMAIN)
 
+.PHONY: setup-ci
+setup-ci:
+	$(GO_RUN) setup --domain $(BASE_DOMAIN) --no-interactive
+
+# ── Lifecycle ──────────────────────────────────────────────────────────────────
+
+.PHONY: up
 up:
-	docker network create proxy || true
-	docker compose -f infra/docker-compose.yml --env-file infra/.env up -d --build
+	$(GO_RUN) up
 
+.PHONY: down
 down:
-	docker compose -f infra/docker-compose.yml --env-file infra/.env down
+	$(GO_RUN) down
 
+.PHONY: logs
 logs:
-	docker compose -f infra/docker-compose.yml --env-file infra/.env logs -f
+	$(GO_RUN) logs
 
+.PHONY: status
+status:
+	$(GO_RUN) status
+
+.PHONY: clean
 clean:
-	docker compose -f infra/docker-compose.yml --env-file infra/.env down -v
-	rm -rf infra/traefik/certs/*
+	$(GO_RUN) clean
 
-# Database migrations
-migrate-init:
-	cd backend && alembic revision --autogenerate -m "Initial schema"
+.PHONY: clean-all
+clean-all:
+	$(GO_RUN) clean --volumes --certs --force
 
-migrate-up:
-	cd backend && alembic upgrade head
+# ── Dev ────────────────────────────────────────────────────────────────────────
 
-migrate-down:
-	cd backend && alembic downgrade -1
+.PHONY: dev
+dev:
+	$(GO_RUN) $(CMD)
+
+.PHONY: run
+run: up
+
+.PHONY: restart
+restart: down up

@@ -1,20 +1,39 @@
-# Segredos — NUNCA commitar
+# ── Domain-Agnostic Infrastructure ──────────────────────────────────────────
 .env
+infra/.env
+infra/.env.*
+infra/traefik/certs/
+infra/traefik/config/.htpasswd
+infra/keycloak/*.json
+!infra/keycloak/realm-template.json
+
+# ── Secrets ──────────────────────────────────────────────────────────────────
 *.env.local
 *.env.production
+*.bak
 
-# Certificados TLS
-traefik/certs/
-
-# Dados persistentes
+# ── Persistent Data ──────────────────────────────────────────────────────────
 keycloak_data/
 postgres_data/
 
-# Editor
+# ── Node.js / Python ─────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+node_modules/
+dist/
+
+# ── Editor & OS ──────────────────────────────────────────────────────────────
 .idea/
 .vscode/
 *.swp
 *~
-
-# macOS
 .DS_Store
+
+# ── Agent ────────────────────────────────────────────────────────────────────
+.agents/
+skills-lock.json
+agent/dist/
+agent/node_modules/
+agent/.env
+./key.md

@@ -1,34 +1,22 @@
 # =============================================================================
-# traefik/traefik.yml — Configuração Estática do Traefik v3.7
+# traefik/traefik.yml — Agnostic Static Configuration
 # =============================================================================
 
 global:
   checkNewVersion: false
   sendAnonymousUsage: false
 
-# ---------------------------------------------------------------------------
-# API & Dashboard
-# ---------------------------------------------------------------------------
 api:
   dashboard: true
-  insecure: false   # exposto via roteador com BasicAuth
+  insecure: false
 
-# ---------------------------------------------------------------------------
-# Ping (healthcheck interno)
-# ---------------------------------------------------------------------------
 ping:
   entryPoint: traefik
 
-# ---------------------------------------------------------------------------
-# Entry Points
-# ---------------------------------------------------------------------------
 entryPoints:
-
-  # Porta interna usada pelo ping
   traefik:
     address: ":8080"
 
-  # HTTP — redireciona todo tráfego para HTTPS
   web:
     address: ":80"
     http:
@@ -38,50 +26,47 @@ entryPoints:
           scheme: https
           permanent: true
 
-  # HTTPS — TLS obrigatório
   websecure:
     address: ":443"
     http:
       tls: {}
       middlewares:
         - security-headers@file
-    # Proteção contra slowloris / DDoS básico
     transport:
       respondingTimeouts:
         readTimeout: 30s
         writeTimeout: 30s
         idleTimeout: 120s
 
-# ---------------------------------------------------------------------------
-# Providers
-# ---------------------------------------------------------------------------
 providers:
-
-  # Docker provider — descobre serviços via labels
   docker:
     endpoint: "unix:///var/run/docker.sock"
-    exposedByDefault: false     # IMPORTANTE: só expõe containers com label enable=true
+    exposedByDefault: false
     network: proxy
     watch: true
-
-  # File provider — middlewares reutilizáveis e configurações dinâmicas
   file:
     directory: /etc/traefik/config
     watch: true
 
-# ---------------------------------------------------------------------------
-# TLS — Certificados locais (mkcert)
-# ---------------------------------------------------------------------------
+certificatesResolvers:
+  # Production: Let's Encrypt ACME
+  letsencrypt:
+    acme:
+      email: "${LETSENCRYPT_EMAIL}"
+      storage: /letsencrypt/acme.json
+      httpChallenge:
+        entryPoint: web
+
+  # Development: Static certs (mkcert) — handled by default tls store below
+
+# Certificados estáticos (dev/mkcert)
 tls:
   stores:
     default:
       defaultCertificate:
-        certFile: /certs/local.dev.crt
-        keyFile:  /certs/local.dev.key
+        certFile: /certs/wildcard.crt
+        keyFile:  /certs/wildcard.key
 
-# ---------------------------------------------------------------------------
-# Logging
-# ---------------------------------------------------------------------------
 log:
   level: INFO
   format: json
@@ -93,15 +78,5 @@ accessLog:
     headers:
       defaultMode: drop
       names:
-        # Não loga headers sensíveis
         Authorization: drop
         Cookie: drop
-
-# ---------------------------------------------------------------------------
-# Métricas (opcional — descomente para usar com Prometheus)
-# ---------------------------------------------------------------------------
-# metrics:
-#   prometheus:
-#     entryPoint: traefik
-#     addEntryPointsLabels: true
-#     addServicesLabels: true

@@ -1,12 +1,52 @@
-# .github/workflows/cd.yml
+# =============================================================================
+# cd.yml — Multi-Environment Continuous Deployment
+# =============================================================================
 name: CD
+
 on:
   push:
-    branches: [main]
+    branches: [main, 'release/**']
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # Multi-environment support
+        environment: [staging, production]
+    
+    # Restrict deployment to specific branch if needed
+    if: github.event_name == 'workflow_dispatch' || (github.ref == 'refs/heads/main' && matrix.environment == 'staging')
+    
+    environment: ${{ matrix.environment }}
+
     steps:
       - uses: actions/checkout@v4
-      - name: Deploy
-        run: echo "Deploying..."
+
+      - name: Configure Environment Variables
+        run: |
+          echo "BASE_DOMAIN=${{ vars.BASE_DOMAIN }}" >> $GITHUB_ENV
+          echo "TLS_RESOLVER=letsencrypt"            >> $GITHUB_ENV
+
+      - name: Deployment Bootstrap
+        env:
+          BASE_DOMAIN: ${{ vars.BASE_DOMAIN }}
+          KC_DB_PASSWORD: ${{ secrets.KC_DB_PASSWORD }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          KC_ADMIN_PASSWORD: ${{ secrets.KC_ADMIN_PASSWORD }}
+          OAUTH2_PROXY_CLIENT_SECRET: ${{ secrets.OAUTH2_PROXY_CLIENT_SECRET }}
+          OAUTH2_PROXY_COOKIE_SECRET: ${{ secrets.OAUTH2_PROXY_COOKIE_SECRET }}
+          SAAS_API_CLIENT_SECRET: ${{ secrets.SAAS_API_CLIENT_SECRET }}
+          TRAEFIK_DASHBOARD_PASSWORD_HASH: ${{ secrets.TRAEFIK_DASHBOARD_PASSWORD_HASH }}
+        run: |
+          # Use setup.sh to generate the .env from GitHub Variables and Secrets
+          BASE_DOMAIN=$BASE_DOMAIN ./setup.sh
+          
+          # Deploy using Docker Compose
+          cd infra && docker compose up -d --build

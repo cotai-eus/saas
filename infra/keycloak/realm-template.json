@@ -1,39 +1,31 @@
 {
-  "realm": "saas-local",
-  "displayName": "SaaS Local",
+  "realm": "saas",
+  "displayName": "SaaS Platform",
   "enabled": true,
   "sslRequired": "external",
   "registrationAllowed": false,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
   "resetPasswordAllowed": true,
-  "editUsernameAllowed": false,
   "bruteForceProtected": true,
   "permanentLockout": false,
   "maxFailureWaitSeconds": 900,
-  "minimumQuickLoginWaitSeconds": 60,
-  "waitIncrementSeconds": 60,
-  "quickLoginCheckMilliSeconds": 1000,
-  "maxDeltaTimeSeconds": 43200,
   "failureFactor": 5,
-
   "accessTokenLifespan": 300,
-  "refreshTokenMaxReuse": 0,
   "revokeRefreshToken": true,
 
   "clients": [
     {
       "clientId": "oauth2-proxy",
       "name": "OAuth2 Proxy",
-      "description": "Client para o OAuth2-Proxy (SSO das apps)",
       "enabled": true,
       "clientAuthenticatorType": "client-secret",
-      "secret": "saas-local-oauth2-proxy-secret",
+      "secret": "${OAUTH2_PROXY_CLIENT_SECRET}",
       "redirectUris": [
-        "https://app.local.dev/oauth2/callback"
+        "https://${APP_HOST}/oauth2/callback"
       ],
       "webOrigins": [
-        "https://app.local.dev"
+        "https://${APP_HOST}"
       ],
       "protocol": "openid-connect",
       "publicClient": false,
@@ -42,25 +34,13 @@
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
       "fullScopeAllowed": false,
-      "defaultClientScopes": [
-        "web-origins",
-        "acr",
-        "profile",
-        "roles",
-        "email"
-      ],
-      "optionalClientScopes": [
-        "address",
-        "phone",
-        "offline_access",
-        "microprofile-jwt"
-      ],
+      "defaultClientScopes": ["web-origins", "acr", "profile", "roles", "email"],
+      "optionalClientScopes": ["address", "phone", "offline_access"],
       "protocolMappers": [
         {
           "name": "groups",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-group-membership-mapper",
-          "consentRequired": false,
           "config": {
             "full.path": "true",
             "id.token.claim": "true",
@@ -73,7 +53,6 @@
           "name": "audience-oauth2-proxy",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-audience-mapper",
-          "consentRequired": false,
           "config": {
             "included.client.audience": "oauth2-proxy",
             "id.token.claim": "true",
@@ -85,52 +64,39 @@
     {
       "clientId": "saas-api",
       "name": "SaaS API",
-      "description": "Client M2M para comunicação entre serviços",
       "enabled": true,
       "clientAuthenticatorType": "client-secret",
-      "secret": "saas-local-saas-api-secret",
+      "secret": "${SAAS_API_CLIENT_SECRET}",
       "protocol": "openid-connect",
       "publicClient": false,
       "standardFlowEnabled": false,
-      "implicitFlowEnabled": false,
-      "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": true,
       "fullScopeAllowed": false
     }
   ],
 
   "groups": [
-    {
-      "name": "app-users",
-      "path": "/app-users"
-    },
-    {
-      "name": "admins",
-      "path": "/admins"
-    }
+    { "name": "app-users", "path": "/app-users" },
+    { "name": "admins",    "path": "/admins"    }
   ],
 
   "roles": {
     "realm": [
-      { "name": "user",  "description": "Usuário padrão do SaaS" },
-      { "name": "admin", "description": "Administrador do SaaS"  }
+      { "name": "user",  "description": "Standard User" },
+      { "name": "admin", "description": "Administrator"  }
     ]
   },
 
   "users": [
     {
       "username": "test-user",
-      "email": "test@local.dev",
+      "email": "test@${BASE_DOMAIN}",
       "firstName": "Test",
       "lastName": "User",
       "enabled": true,
       "emailVerified": true,
       "credentials": [
-        {
-          "type": "password",
-          "value": "Test@12345",
-          "temporary": true
-        }
+        { "type": "password", "value": "Test@12345678", "temporary": true }
       ],
       "realmRoles": ["user"],
       "groups": ["/app-users"]
@@ -138,9 +104,6 @@
   ],
 
   "passwordPolicy": "length(12) and upperCase(1) and lowerCase(1) and digits(1) and specialChars(1) and notUsername(undefined)",
-
-  "smtpServer": {},
-
   "loginTheme": "keycloak",
   "internationalizationEnabled": true,
   "supportedLocales": ["pt-BR", "en"],
