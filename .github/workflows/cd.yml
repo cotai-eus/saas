@@ -11,15 +11,44 @@ on:
         default: 'staging'
 
 jobs:
-  deploy:
+  deploy-staging:
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        environment: [staging, production]
+    environment: staging
 
-    if: github.event_name == 'workflow_dispatch' || (github.ref == 'refs/heads/main' && matrix.environment == 'staging')
+    steps:
+      - uses: actions/checkout@v4
 
-    environment: ${{ matrix.environment }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Build CLI
+        run: make build
+
+      - name: Configure Environment Variables
+        run: |
+          echo "BASE_DOMAIN=${{ vars.BASE_DOMAIN }}" >> $GITHUB_ENV
+          echo "TLS_RESOLVER=letsencrypt"            >> $GITHUB_ENV
+
+      - name: Deployment Bootstrap
+        env:
+          BASE_DOMAIN: ${{ vars.BASE_DOMAIN }}
+          KC_DB_PASSWORD: ${{ secrets.KC_DB_PASSWORD }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          KC_ADMIN_PASSWORD: ${{ secrets.KC_ADMIN_PASSWORD }}
+          OAUTH2_PROXY_CLIENT_SECRET: ${{ secrets.OAUTH2_PROXY_CLIENT_SECRET }}
+          OAUTH2_PROXY_COOKIE_SECRET: ${{ secrets.OAUTH2_PROXY_COOKIE_SECRET }}
+          SAAS_API_CLIENT_SECRET: ${{ secrets.SAAS_API_CLIENT_SECRET }}
+          TRAEFIK_DASHBOARD_PASSWORD_HASH: ${{ secrets.TRAEFIK_DASHBOARD_PASSWORD_HASH }}
+        run: |
+          ./ctl setup --domain "$BASE_DOMAIN" --env prod --no-interactive --skip-tls
+          cd infra && docker compose up -d --build
+
+  deploy-production:
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/heads/release/')
+    runs-on: ubuntu-latest
+    environment: production
 
     steps:
       - uses: actions/checkout@v4
