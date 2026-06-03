@@ -13,11 +13,11 @@ const (
 )
 
 var (
-	RepoRoot    string
-	ComposeFile string
-	CertsDir    string
-	EnvFile     string
-	EnvExample  string
+	RepoRoot     string
+	ComposeFile  string
+	CertsDir     string
+	EnvFile      string
+	EnvExample   string
 	WildcardCert string
 	WildcardKey  string
 	RootCACert   string

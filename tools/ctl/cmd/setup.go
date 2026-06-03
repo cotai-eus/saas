@@ -10,11 +10,11 @@ import (
 )
 
 var (
-	setupDomain       string
-	setupEnvType      string
+	setupDomain        string
+	setupEnvType       string
 	setupNoInteractive bool
-	setupNoBackup     bool
-	setupSkipTLS      bool
+	setupNoBackup      bool
+	setupSkipTLS       bool
 )
 
 var setupCmd = &cobra.Command{
