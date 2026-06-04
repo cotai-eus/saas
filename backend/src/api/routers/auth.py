@@ -1,16 +1,9 @@
-from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException
 
 router = APIRouter()
 
 
 def require_tenant(request: Request) -> str:
-    tenant_id = getattr(request.state, "tenant_id", None)
-    if not tenant_id:
-        raise HTTPException(401, "Authentication required")
-    return tenant_id
-
-
-def get_tenant_id(request: Request) -> str:
     tenant_id = getattr(request.state, "tenant_id", None)
     if not tenant_id:
         raise HTTPException(401, "Authentication required")

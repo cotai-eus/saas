@@ -11,12 +11,11 @@ engine = create_engine(
 )
 
 SessionFactory = sessionmaker(bind=engine)
-SessionLocal = scoped_session(SessionFactory)
 
 
 def get_db(request: Request):
     tenant_id = getattr(request.state, "tenant_id", None)
-    db = SessionLocal()
+    db = SessionFactory()
     try:
         if tenant_id:
             db.execute(
@@ -30,4 +29,3 @@ def get_db(request: Request):
         raise
     finally:
         db.close()
-        SessionLocal.remove()

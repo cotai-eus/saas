@@ -1,7 +1,9 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
+from typing import Any, Dict
 
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey
+from sqlalchemy import String, Integer, DateTime, ForeignKey, text
+from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 
 from infrastructure.database.base import Base
@@ -10,25 +12,27 @@ from infrastructure.database.base import Base
 class Channel(Base):
     __tablename__ = "channels"
 
-    id = Column(
+    id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         primary_key=True,
         default=uuid.uuid4,
     )
-    tenant_id = Column(
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("tenants.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    type = Column(String(32), nullable=False)
-    name = Column(String(128), nullable=False)
-    status = Column(String(16), default="inactive")
-    config = Column(JSONB, nullable=False, default=dict)
-    daily_limit = Column(Integer, default=1000)
-    monthly_limit = Column(Integer, default=30000)
-    created_at = Column(
-        DateTime, default=datetime.utcnow, server_default="CURRENT_TIMESTAMP"
+    type: Mapped[str] = mapped_column(String(32), nullable=False)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), server_default="inactive")
+    config: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    daily_limit: Mapped[int] = mapped_column(Integer, server_default="1000")
+    monthly_limit: Mapped[int] = mapped_column(Integer, server_default="30000")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, 
+        default=lambda: datetime.now(timezone.utc), 
+        server_default=text("CURRENT_TIMESTAMP")
     )
 
     @classmethod

@@ -1,11 +1,11 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Request, HTTPException, Query
 from pydantic import BaseModel, field_validator
 
 from domain.entities.message import Message, MessageContent
 from domain.entities.channel import Channel
-from domain.value_objects.channel_type import ContentType
+from domain.value_objects.channel_type import ChannelType, ContentType
 from domain.exceptions.channel_exceptions import ChannelNotActiveError
 from domain.exceptions.quota_exceeded import QuotaExceededError
 from infrastructure.database.session import get_db
@@ -15,7 +15,7 @@ from infrastructure.database.models.channel import Channel as ChannelModel
 from infrastructure.queue.producer import QueueProducer, get_producer
 from application.messaging.send_message import SendMessageUseCase
 from application.billing.quota_service import QuotaService
-from api.routers.auth import get_tenant_id
+from api.routers.auth import require_tenant
 
 router = APIRouter(prefix="/messages", tags=["messages"])
 
@@ -56,13 +56,15 @@ class MessageResponse(BaseModel):
     status: str
 
 
-@router.post("/", response_model=MessageResponse, status_code=201)
+@router.post("/send", response_model=MessageResponse)
 def send_message(
     body: SendRequest,
+    request: Request,
     db=Depends(get_db),
     queue: QueueProducer = Depends(get_producer),
-    tenant_id: str = Depends(get_tenant_id),
 ):
+    tenant_id = require_tenant(request)
+
     channel = _get_channel(db, body.channel_id, tenant_id)
 
     msg = Message(
@@ -96,31 +98,23 @@ def send_message(
 
 @router.get("/")
 def list_messages(
-    db=Depends(get_db),
-    tenant_id: str = Depends(get_tenant_id),
+    request: Request,
     channel_id: str = Query(None),
     status: str = Query(None),
-    sort_by: str = Query("created_at"),
-    sort_order: str = Query("desc"),
     limit: int = Query(50, le=200),
     offset: int = Query(0),
+    db=Depends(get_db),
 ):
+    tenant_id = require_tenant(request)
+
     q = db.query(MessageModel).filter(MessageModel.tenant_id == tenant_id)
     if channel_id:
         q = q.filter(MessageModel.channel_id == channel_id)
     if status:
         q = q.filter(MessageModel.status == status)
 
-    sort_map = {
-        "created_at": MessageModel.created_at,
-        "status": MessageModel.status,
-        "content_type": MessageModel.content_type,
-    }
-    sort_col = sort_map.get(sort_by, MessageModel.created_at)
-    order_fn = sort_col.desc if sort_order == "desc" else sort_col.asc
-
     total = q.count()
-    rows = q.order_by(order_fn()).offset(offset).limit(limit).all()
+    rows = q.order_by(MessageModel.created_at.desc()).offset(offset).limit(limit).all()
 
     return {
         "total": total,
@@ -140,11 +134,9 @@ def list_messages(
 
 
 @router.get("/{message_id}")
-def get_message(
-    message_id: str,
-    db=Depends(get_db),
-    tenant_id: str = Depends(get_tenant_id),
-):
+def get_message(message_id: str, request: Request, db=Depends(get_db)):
+    tenant_id = require_tenant(request)
+
     try:
         uid = UUID(message_id)
     except ValueError:

@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     db_port: str = "5432"
     db_name: str = "saas"
     auth_host: str = "auth.local.dev"
+    allowed_origins: list[str] = ["http://localhost:5173", "https://app.local.dev"]
 
     redis_url: str = "redis://localhost:6379/0"
     queue_backend: str = "redis"

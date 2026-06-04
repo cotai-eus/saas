@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
 from domain.value_objects.channel_type import ChannelType, MessageStatus
@@ -20,7 +20,7 @@ class Message:
     provider_message_id: str = None
     error_code: str = None
     error_message: str = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     sent_at: datetime = None
     delivered_at: datetime = None
     read_at: datetime = None

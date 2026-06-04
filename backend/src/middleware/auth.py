@@ -1,83 +1,62 @@
-import httpx
-from jose import jwt, JWTError
-from jose.constants import Algorithms
+import logging
+from jose import jwt
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response, JSONResponse
-from infrastructure.settings import settings
 
-JWKS_CACHE = None
-JWKS_ISSUER = None
+logger = logging.getLogger(__name__)
 
 
-async def fetch_jwks():
-    global JWKS_CACHE, JWKS_ISSUER
-    issuer = f"https://{settings.auth_host}/realms/saas"
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                f"{issuer}/.well-known/openid-configuration",
-                timeout=10,
-            )
-            resp.raise_for_status()
-            oidc_config = resp.json()
-            jwks_uri = oidc_config["jwks_uri"]
-            jwks_resp = await client.get(jwks_uri, timeout=10)
-            jwks_resp.raise_for_status()
-            JWKS_CACHE = jwks_resp.json()
-            JWKS_ISSUER = issuer
-    except Exception:
-        JWKS_CACHE = None
-        JWKS_ISSUER = issuer
-
-
-def verify_jwt(token: str) -> dict | None:
-    if not JWKS_CACHE:
-        return None
-    try:
-        header = jwt.get_unverified_header(token)
-        kid = header.get("kid")
-        key = None
-        for k in JWKS_CACHE.get("keys", []):
-            if k.get("kid") == kid:
-                key = k
-                break
-        if not key:
-            return None
-        claims = jwt.decode(
-            token,
-            key,
-            audience="oauth2-proxy",
-            issuer=JWKS_ISSUER,
-            algorithms=[Algorithms.RS256],
-        )
-        return claims
-    except JWTError:
-        return None
-
-
-class JWTAuthMiddleware(BaseHTTPMiddleware):
+class ProxyAuthMiddleware(BaseHTTPMiddleware):
+    """
+    Middleware to extract user information from headers provided by Traefik/OAuth2-Proxy.
+    Assumes the request has already been authenticated by the proxy.
+    """
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
+        # Extract basic user info from Traefik/OAuth2-Proxy headers
+        user_id = request.headers.get("X-Auth-Request-User")
+        email = request.headers.get("X-Auth-Request-Email")
+        groups_raw = request.headers.get("X-Auth-Request-Groups", "")
+        groups = [g.strip() for g in groups_raw.split(",") if g.strip()]
+        
+        # If headers are missing, try to extract from JWT without verification 
+        # (since it was already verified by the proxy)
+        tenant_id = None
+        roles = []
+        
         auth_header = request.headers.get("Authorization", "")
         if auth_header.startswith("Bearer "):
             token = auth_header.removeprefix("Bearer ")
-            claims = verify_jwt(token)
-            if claims is None:
+            try:
+                # Get unverified claims since signature was already checked by Traefik
+                claims = jwt.get_unverified_claims(token)
+                tenant_id = claims.get("tenant_id")
+                roles = claims.get("realm_roles", [])
+                
+                # Fallback for user_id/email if headers are missing
+                if not user_id:
+                    user_id = claims.get("sub")
+                if not email:
+                    email = claims.get("email")
+                if not groups:
+                    groups = claims.get("groups", [])
+            except Exception as e:
+                logger.warning("Failed to parse unverified JWT claims: %s", e)
                 return JSONResponse(
                     status_code=401, content={"detail": "Invalid or expired token"}
                 )
-            request.state.user_id = claims.get("sub")
-            request.state.email = claims.get("email")
-            request.state.tenant_id = claims.get("tenant_id")
-            request.state.roles = claims.get("realm_roles", [])
-            request.state.groups = claims.get("groups", [])
-        else:
-            request.state.user_id = None
-            request.state.email = None
-            request.state.tenant_id = None
-            request.state.roles = []
-            request.state.groups = []
+
+        # Allow X-Tenant-ID header to override for development or specific cases
+        header_tenant_id = request.headers.get("X-Tenant-ID")
+        if header_tenant_id:
+            tenant_id = header_tenant_id
+
+        request.state.user_id = user_id
+        request.state.email = email
+        request.state.tenant_id = tenant_id
+        request.state.roles = roles
+        request.state.groups = groups
 
         return await call_next(request)

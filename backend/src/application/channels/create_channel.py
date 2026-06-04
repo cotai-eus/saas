@@ -1,5 +1,5 @@
 from uuid import UUID
-
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from domain.entities.channel import Channel, ChannelConfig, ChannelStatus
@@ -20,6 +20,7 @@ class CreateChannelUseCase:
         name: str,
         config: ChannelConfig,
     ) -> Channel:
+        # Pre-check (still useful for better error messages, but not sufficient)
         existing = (
             self.db.query(ChannelModel)
             .filter(
@@ -50,6 +51,13 @@ class CreateChannelUseCase:
 
         row = ChannelModel.from_domain(channel)
         self.db.add(row)
-        self.db.flush()
+        
+        try:
+            self.db.flush()
+        except IntegrityError:
+            self.db.rollback()
+            raise ChannelValidationError(
+                f"Tenant already has a {channel_type.value} channel (race condition)"
+            )
 
         return channel

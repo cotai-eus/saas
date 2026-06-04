@@ -411,21 +411,27 @@ class TestQuotaService:
         db = MagicMock()
         subscription = MagicMock()
         subscription.plan = "professional"
-        db.query().filter().first.return_value = subscription
-        db.query().filter().count.return_value = 0
+        
+        db.query.return_value.filter.return_value = db.query.return_value
+        db.query.return_value.first.return_value = subscription
+        db.query.return_value.scalar.return_value = 0
 
-        uc = QuotaService(db=db, tenant_id=UUID("22222222-2222-2222-2222-222222222222"))
-        assert uc.check_and_increment(UUID("11111111-1111-1111-1111-111111111111"))
+        with patch("application.billing.quota_service.get_redis_client", side_effect=Exception("Redis down")):
+            uc = QuotaService(db=db, tenant_id=UUID("22222222-2222-2222-2222-222222222222"))
+            assert uc.check_and_increment(UUID("11111111-1111-1111-1111-111111111111"))
 
     def test_monthly_limit_exceeded_returns_false(self):
         db = MagicMock()
         subscription = MagicMock()
         subscription.plan = "starter"
-        db.query().filter().first.return_value = subscription
-        db.query().filter().count.return_value = 9999
+        
+        db.query.return_value.filter.return_value = db.query.return_value
+        db.query.return_value.first.return_value = subscription
+        db.query.return_value.scalar.return_value = 9999
 
-        uc = QuotaService(db=db, tenant_id=UUID("22222222-2222-2222-2222-222222222222"))
-        assert not uc.check_and_increment(UUID("11111111-1111-1111-1111-111111111111"))
+        with patch("application.billing.quota_service.get_redis_client", side_effect=Exception("Redis down")):
+            uc = QuotaService(db=db, tenant_id=UUID("22222222-2222-2222-2222-222222222222"))
+            assert not uc.check_and_increment(UUID("11111111-1111-1111-1111-111111111111"))
 
     def test_no_subscription_returns_false(self):
         db = MagicMock()
@@ -433,3 +439,30 @@ class TestQuotaService:
 
         uc = QuotaService(db=db, tenant_id=UUID("22222222-2222-2222-2222-222222222222"))
         assert not uc.check_and_increment(UUID("11111111-1111-1111-1111-111111111111"))
+
+    def test_redis_quota_success(self):
+        db = MagicMock()
+        subscription = MagicMock()
+        subscription.plan = "starter"
+        db.query().filter().first.return_value = subscription
+
+        redis = MagicMock()
+        redis.eval.return_value = 1 # Success in Lua script
+
+        with patch("application.billing.quota_service.get_redis_client", return_value=redis):
+            uc = QuotaService(db=db, tenant_id=UUID("22222222-2222-2222-2222-222222222222"))
+            assert uc.check_and_increment(UUID("11111111-1111-1111-1111-111111111111"))
+            redis.eval.assert_called_once()
+
+    def test_redis_quota_exceeded(self):
+        db = MagicMock()
+        subscription = MagicMock()
+        subscription.plan = "starter"
+        db.query().filter().first.return_value = subscription
+
+        redis = MagicMock()
+        redis.eval.return_value = 0 # Limit reached in Lua script
+
+        with patch("application.billing.quota_service.get_redis_client", return_value=redis):
+            uc = QuotaService(db=db, tenant_id=UUID("22222222-2222-2222-2222-222222222222"))
+            assert not uc.check_and_increment(UUID("11111111-1111-1111-1111-111111111111"))

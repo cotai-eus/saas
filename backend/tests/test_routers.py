@@ -29,7 +29,12 @@ def mock_producer():
 
 @pytest.fixture
 def auth_header():
-    return {"Authorization": "Bearer fake.jwt.token"}
+    # Return headers that ProxyAuthMiddleware will trust
+    return {
+        "X-Auth-Request-User": "user-123",
+        "X-Auth-Request-Email": "test@example.com",
+        "X-Tenant-ID": "22222222-2222-2222-2222-222222222222"
+    }
 
 
 @pytest.fixture
@@ -40,19 +45,9 @@ def override_deps(mock_db, mock_producer):
     app.dependency_overrides[get_db] = _get_db_override
     app.dependency_overrides[get_producer] = lambda: mock_producer
 
-    original_verify = auth_middleware.verify_jwt
-    auth_middleware.verify_jwt = lambda token: {
-        "sub": "user-123",
-        "email": "test@example.com",
-        "tenant_id": "22222222-2222-2222-2222-222222222222",
-        "realm_roles": [],
-        "groups": [],
-    }
-
     yield
 
     app.dependency_overrides.clear()
-    auth_middleware.verify_jwt = original_verify
 
 
 def make_channel_row(**overrides):
@@ -242,8 +237,9 @@ class TestChannelsRouter:
 class TestMessagesRouter:
     def test_send_message(self, client, override_deps, mock_db, mock_producer, auth_header):
         row = make_channel_row()
-        mock_db.query().filter().first.return_value = row
-        mock_db.query().filter().count.return_value = 0
+        mock_db.query.return_value.filter.return_value = mock_db.query.return_value
+        mock_db.query.return_value.first.return_value = row
+        mock_db.query.return_value.scalar.return_value = 0
 
         with patch("application.messaging.send_message.MessageModel"):
             resp = client.post(

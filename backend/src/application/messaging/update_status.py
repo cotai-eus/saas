@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
@@ -33,7 +33,7 @@ class UpdateStatusUseCase:
         if error_message:
             row.error_message = error_message
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         if status == "sent":
             row.sent_at = now
         elif status == "delivered":

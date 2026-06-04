@@ -1,8 +1,8 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
-from sqlalchemy import Column, String, DateTime, Index
-
+from sqlalchemy import String, DateTime, Index, text
+from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import UUID
 
 from infrastructure.database.base import Base
@@ -11,15 +11,17 @@ from infrastructure.database.base import Base
 class WebhookEvent(Base):
     __tablename__ = "webhook_events"
 
-    id = Column(
+    id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         primary_key=True,
         default=uuid.uuid4,
     )
-    event_hash = Column(String(64), nullable=False)
-    channel_id = Column(UUID(as_uuid=True), nullable=False)
-    received_at = Column(
-        DateTime, default=datetime.utcnow, server_default="CURRENT_TIMESTAMP"
+    event_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    channel_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime, 
+        default=lambda: datetime.now(timezone.utc), 
+        server_default=text("CURRENT_TIMESTAMP")
     )
 
 

@@ -1,15 +1,17 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 
-from api.routers.auth import get_tenant_id
+from api.routers.auth import require_tenant
 
 router = APIRouter(prefix="/templates", tags=["templates"])
 
 
 @router.get("/")
 def list_templates(
-    tenant_id: str = Depends(get_tenant_id),
+    request: Request,
+    db=Depends(lambda: None),
 ):
+    require_tenant(request)
     return JSONResponse(
         status_code=501,
         content={"detail": "Template management not yet implemented"},

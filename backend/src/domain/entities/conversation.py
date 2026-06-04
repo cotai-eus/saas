@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
 from domain.value_objects.channel_type import ChannelType
@@ -14,5 +14,5 @@ class Conversation:
     contact_id: UUID = None
     status: str = "active"
     last_message_at: datetime = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     metadata: dict = field(default_factory=dict)

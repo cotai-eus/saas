@@ -1,17 +1,18 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, Request, HTTPException
+from pydantic import BaseModel, field_validator
 
 from domain.value_objects.channel_type import ChannelType
 from domain.entities.channel import ChannelConfig
 from domain.exceptions.channel_exceptions import ChannelNotFoundError, ChannelValidationError
 from infrastructure.database.session import get_db
+from infrastructure.database.mappers import channel_from_orm
 from infrastructure.database.models.channel import Channel as ChannelModel
 from application.channels.create_channel import CreateChannelUseCase
 from application.channels.connect_qr import ConnectQRUseCase
 from application.channels.validate_channel import ValidateChannelUseCase
-from api.routers.auth import get_tenant_id
+from api.routers.auth import require_tenant
 
 router = APIRouter(prefix="/channels", tags=["channels"])
 
@@ -24,12 +25,6 @@ class CreateChannelRequest(BaseModel):
     verify_token: str | None = None
 
 
-class UpdateChannelRequest(BaseModel):
-    name: str | None = None
-    daily_limit: int | None = None
-    monthly_limit: int | None = None
-
-
 class ChannelResponse(BaseModel):
     id: str
     type: str
@@ -38,12 +33,14 @@ class ChannelResponse(BaseModel):
     created_at: str | None
 
 
-@router.post("/", response_model=ChannelResponse, status_code=201)
+@router.post("/", response_model=ChannelResponse)
 def create_channel(
     body: CreateChannelRequest,
+    request: Request,
     db=Depends(get_db),
-    tenant_id: str = Depends(get_tenant_id),
 ):
+    tenant_id = require_tenant(request)
+
     config = ChannelConfig(
         wa_phone_number_id=body.phone_number_id,
         wa_access_token=body.access_token,
@@ -66,19 +63,16 @@ def create_channel(
 
 
 @router.get("/")
-def list_channels(
-    db=Depends(get_db),
-    tenant_id: str = Depends(get_tenant_id),
-    limit: int = Query(50, le=200),
-    offset: int = Query(0),
-):
-    q = db.query(ChannelModel).filter(ChannelModel.tenant_id == tenant_id)
+def list_channels(request: Request, db=Depends(get_db)):
+    tenant_id = require_tenant(request)
 
-    total = q.count()
-    rows = q.order_by(ChannelModel.created_at.desc()).offset(offset).limit(limit).all()
-
+    rows = (
+        db.query(ChannelModel)
+        .filter(ChannelModel.tenant_id == tenant_id)
+        .all()
+    )
     return {
-        "total": total,
+        "total": len(rows),
         "items": [
             ChannelResponse(
                 id=str(r.id),
@@ -93,11 +87,9 @@ def list_channels(
 
 
 @router.get("/{channel_id}")
-def get_channel(
-    channel_id: str,
-    db=Depends(get_db),
-    tenant_id: str = Depends(get_tenant_id),
-):
+def get_channel(channel_id: str, request: Request, db=Depends(get_db)):
+    tenant_id = require_tenant(request)
+
     try:
         uid = UUID(channel_id)
     except ValueError:
@@ -123,53 +115,10 @@ def get_channel(
     }
 
 
-@router.put("/{channel_id}")
-def update_channel(
-    channel_id: str,
-    body: UpdateChannelRequest,
-    db=Depends(get_db),
-    tenant_id: str = Depends(get_tenant_id),
-):
-    try:
-        uid = UUID(channel_id)
-    except ValueError:
-        raise HTTPException(400, "Invalid channel_id format")
+@router.delete("/{channel_id}")
+def delete_channel(channel_id: str, request: Request, db=Depends(get_db)):
+    tenant_id = require_tenant(request)
 
-    row = (
-        db.query(ChannelModel)
-        .filter(
-            ChannelModel.id == uid,
-            ChannelModel.tenant_id == tenant_id,
-        )
-        .first()
-    )
-    if not row:
-        raise HTTPException(404, "Channel not found")
-
-    if body.name is not None:
-        row.name = body.name
-    if body.daily_limit is not None:
-        row.daily_limit = body.daily_limit
-    if body.monthly_limit is not None:
-        row.monthly_limit = body.monthly_limit
-
-    db.flush()
-
-    return {
-        "id": str(row.id),
-        "type": row.type,
-        "name": row.name,
-        "status": row.status,
-        "created_at": row.created_at.isoformat() if row.created_at else None,
-    }
-
-
-@router.delete("/{channel_id}", status_code=204)
-def delete_channel(
-    channel_id: str,
-    db=Depends(get_db),
-    tenant_id: str = Depends(get_tenant_id),
-):
     try:
         uid = UUID(channel_id)
     except ValueError:
@@ -188,15 +137,15 @@ def delete_channel(
 
     db.delete(row)
     db.commit()
-    return Response(status_code=204)
+    return {"status": "deleted"}
 
 
 @router.post("/{channel_id}/validate")
 def validate_channel(
-    channel_id: str,
-    db=Depends(get_db),
-    tenant_id: str = Depends(get_tenant_id),
+    channel_id: str, request: Request, db=Depends(get_db)
 ):
+    tenant_id = require_tenant(request)
+
     try:
         uid = UUID(channel_id)
     except ValueError:
@@ -212,11 +161,9 @@ def validate_channel(
 
 
 @router.get("/{channel_id}/qr")
-def get_qr_code(
-    channel_id: str,
-    db=Depends(get_db),
-    tenant_id: str = Depends(get_tenant_id),
-):
+def get_qr_code(channel_id: str, request: Request, db=Depends(get_db)):
+    tenant_id = require_tenant(request)
+
     try:
         uid = UUID(channel_id)
     except ValueError:

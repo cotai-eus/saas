@@ -1,38 +1,20 @@
 import logging
 
-from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from middleware.auth import JWTAuthMiddleware, fetch_jwks
+from middleware.auth import ProxyAuthMiddleware
 from api.routers import health, auth, channels, messages, webhooks, contacts, templates
+from infrastructure.settings import settings
 
 logger = logging.getLogger(__name__)
 
 API_PREFIX = "/api/v1"
 
+app = FastAPI(title="SaaS Backend")
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    try:
-        await fetch_jwks()
-    except Exception as e:
-        logger.warning("Failed to fetch JWKS at startup: %s", e)
-    yield
-
-
-app = FastAPI(title="SaaS Backend", lifespan=lifespan)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-app.add_middleware(JWTAuthMiddleware)
+app.add_middleware(ProxyAuthMiddleware)
 
 app.include_router(health.router)
 app.include_router(auth.router)

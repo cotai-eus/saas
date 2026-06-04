@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from uuid import UUID, uuid4
 
@@ -39,4 +39,4 @@ class Channel:
     config: ChannelConfig = field(default_factory=ChannelConfig)
     daily_limit: int = 1000
     monthly_limit: int = 30000
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
