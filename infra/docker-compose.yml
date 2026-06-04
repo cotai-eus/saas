@@ -245,6 +245,7 @@ services:
       - "traefik.http.routers.frontend.entrypoints=websecure"
       - "traefik.http.routers.frontend.tls=true"
       - "traefik.http.routers.frontend.middlewares=security-headers@file,rate-limit@file"
+      - "traefik.http.routers.frontend.service=oauth2-proxy"
       - "traefik.http.services.frontend.loadbalancer.server.port=80"
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:80/"]

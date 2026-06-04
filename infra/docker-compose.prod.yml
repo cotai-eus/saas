@@ -1,0 +1,300 @@
+# =============================================================================
+# SaaS Platform — Production Stack (Optimized & Hardened)
+# =============================================================================
+
+name: ${COMPOSE_PROJECT_NAME:-saas-prod}
+
+networks:
+  proxy:
+    external: true
+  internal:
+    name: ${COMPOSE_PROJECT_NAME:-saas-prod}-internal
+    driver: bridge
+    internal: true
+
+volumes: 
+  keycloak_db_data:
+  keycloak_data:
+  app_db_data:
+  redis_data:
+  letsencrypt_data:
+
+services:
+
+  # ── TRAEFIK (Production with ACME) ──────────────────────────────────────────
+  traefik:
+    image: traefik:v3.7@sha256:6b9cbca6fac42ab0075f5437d8dc1685cfd188626d8d515839ea94f8b6271c42
+    container_name: ${COMPOSE_PROJECT_NAME:-saas-prod}-traefik
+    restart: unless-stopped
+    networks: [proxy, internal]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - BASE_DOMAIN
+      - LETSENCRYPT_EMAIL
+      - TRAEFIK_DASHBOARD_PASSWORD_HASH
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/config:/etc/traefik/config:ro
+      - letsencrypt_data:/letsencrypt
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ── REDIS (Quota & Queue) ──────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine@sha256:887895e69e06385a49474775d71c1b3f94e5a953e9c8e8886364d99c438c8266
+    container_name: ${COMPOSE_PROJECT_NAME:-saas-prod}-redis
+    restart: unless-stopped
+    networks: [internal]
+    volumes:
+      - redis_data:/data
+    command: ["redis-server", "--appendonly", "yes"]
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ── KEYCLOAK DATABASE ──────────────────────────────────────────────────────
+  keycloak-db:
+    image: postgres:16-alpine@sha256:16bc17c64a573ef34162af9298258d1aec548232985b33ed7b1eac33ba35c229
+    container_name: ${COMPOSE_PROJECT_NAME:-saas-prod}-keycloak-db
+    restart: unless-stopped
+    networks: [internal]
+    environment:
+      POSTGRES_DB:       ${KC_DB_NAME:-keycloak}
+      POSTGRES_USER:     ${KC_DB_USER:-keycloak}
+      POSTGRES_PASSWORD: ${KC_DB_PASSWORD:?required}
+    volumes:
+      - keycloak_db_data:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${KC_DB_USER:-keycloak}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── APPLICATION DATABASE ───────────────────────────────────────────────────
+  app-db:
+    image: postgres:16-alpine@sha256:16bc17c64a573ef34162af9298258d1aec548232985b33ed7b1eac33ba35c229
+    container_name: ${COMPOSE_PROJECT_NAME:-saas-prod}-app-db
+    restart: unless-stopped
+    networks: [internal]
+    environment:
+      POSTGRES_DB:       ${DB_NAME:-saas}
+      POSTGRES_USER:     ${DB_USER:-saas}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?required}
+    volumes:
+      - app_db_data:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-saas}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── KEYCLOAK (Optimized Build) ─────────────────────────────────────────────
+  keycloak:
+    build:
+      context: ./keycloak
+    container_name: ${COMPOSE_PROJECT_NAME:-saas-prod}-keycloak
+    restart: unless-stopped
+    networks: [proxy, internal]
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        mkdir -p /opt/keycloak/data/import
+        rm -f /opt/keycloak/data/import/*.json
+        sed \
+          -e 's|$${AUTH_HOST}|'"$$AUTH_HOST"'|g' \
+          -e 's|$${APP_HOST}|'"$$APP_HOST"'|g' \
+          -e 's|$${BASE_DOMAIN}|'"$$BASE_DOMAIN"'|g' \
+          -e 's|$${OAUTH2_PROXY_CLIENT_SECRET}|'"$$OAUTH2_PROXY_CLIENT_SECRET"'|g' \
+          -e 's|$${SAAS_API_CLIENT_SECRET}|'"$$SAAS_API_CLIENT_SECRET"'|g' \
+          /opt/keycloak/data/templates/realm-template.json \
+          > /opt/keycloak/data/import/realm-saas.json
+        exec /opt/keycloak/bin/kc.sh start --import-realm --optimized
+    environment:
+      KC_DB:               postgres
+      KC_DB_URL:           jdbc:postgresql://keycloak-db:5432/${KC_DB_NAME:-keycloak}
+      KC_DB_USERNAME:      ${KC_DB_USER:-keycloak}
+      KC_DB_PASSWORD:      ${KC_DB_PASSWORD:?required}
+      KC_DB_POOL_MIN_SIZE: 5
+      KC_DB_POOL_MAX_SIZE: 20
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_ADMIN_USER:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_ADMIN_PASSWORD:?required}
+      KC_PROXY_HEADERS:    xforwarded
+      KC_HTTP_ENABLED:     "true"
+      KC_HOSTNAME:         ${AUTH_HOST}
+      KC_HOSTNAME_STRICT:  "true"
+      KC_CACHE:            local
+      KC_FEATURES:         admin-fine-grained-authz
+      KC_LOG_LEVEL:        INFO
+      JAVA_OPTS_APPEND:    "-Xms512m -Xmx512m"
+      # Variables for envsubst
+      BASE_DOMAIN:         ${BASE_DOMAIN}
+      APP_HOST:            ${APP_HOST}
+      AUTH_HOST:           ${AUTH_HOST}
+      OAUTH2_PROXY_CLIENT_SECRET: ${OAUTH2_PROXY_CLIENT_SECRET:?required}
+      SAAS_API_CLIENT_SECRET:     ${SAAS_API_CLIENT_SECRET:?required}
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+      - ./keycloak/templates:/opt/keycloak/data/templates:ro
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.keycloak.rule=Host(`${AUTH_HOST}`)"
+      - "traefik.http.routers.keycloak.entrypoints=websecure"
+      - "traefik.http.routers.keycloak.tls=true"
+      - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >
+          bash -c 'exec 3<>/dev/tcp/localhost/9000 &&
+          printf "GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n" >&3 &&
+          grep "200" <&3'
+      interval: 20s
+      timeout: 10s
+      retries: 10
+
+  # ── OAUTH2-PROXY ───────────────────────────────────────────────────────────
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.15.0-alpine@sha256:8caf464e485b9cad9ff02aaed4a48e6aef358cc968065e1b1716e920c1ac5f5c
+    container_name: ${COMPOSE_PROJECT_NAME:-saas-prod}-oauth2-proxy
+    restart: unless-stopped
+    networks: [proxy, internal]
+    extra_hosts:
+      - "${AUTH_HOST}:host-gateway"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        if ! command -v envsubst >/dev/null; then apk add --no-cache gettext; fi
+        envsubst < /etc/oauth2-proxy/oauth2-proxy.cfg.tmpl \
+          > /etc/oauth2-proxy/oauth2-proxy.cfg
+        exec /bin/oauth2-proxy --config=/etc/oauth2-proxy/oauth2-proxy.cfg
+    environment:
+      BASE_DOMAIN:                ${BASE_DOMAIN}
+      AUTH_HOST:                  ${AUTH_HOST}
+      APP_HOST:                   ${APP_HOST}
+      OAUTH2_PROXY_CLIENT_ID:     ${OAUTH2_PROXY_CLIENT_ID:-oauth2-proxy}
+      OAUTH2_PROXY_CLIENT_SECRET: ${OAUTH2_PROXY_CLIENT_SECRET:?required}
+      OAUTH2_PROXY_COOKIE_SECRET: ${OAUTH2_PROXY_COOKIE_SECRET:?required}
+      OAUTH2_PROXY_SSL_INSECURE:  ${OAUTH2_PROXY_SSL_INSECURE:-false}
+    volumes:
+      - ./oauth2-proxy/oauth2-proxy.cfg.tmpl:/etc/oauth2-proxy/oauth2-proxy.cfg.tmpl:ro
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.oauth2-proxy.rule=Host(`${APP_HOST}`) && PathPrefix(`/oauth2`)"
+      - "traefik.http.routers.oauth2-proxy.entrypoints=websecure"
+      - "traefik.http.routers.oauth2-proxy.tls=true"
+      - "traefik.http.services.oauth2-proxy.loadbalancer.server.port=4180"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:4180/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ── BACKEND (Hardened FastAPI) ─────────────────────────────────────────────
+  backend:
+    build:
+      context: ../backend/
+    container_name: ${COMPOSE_PROJECT_NAME:-saas-prod}-backend
+    restart: unless-stopped
+    networks: [proxy, internal]
+    environment:
+      DB_NAME:     ${DB_NAME:-saas}
+      DB_USER:     ${DB_USER:-saas}
+      DB_PASSWORD: ${DB_PASSWORD:?required}
+      DB_HOST:     ${DB_HOST:-app-db}
+      DB_PORT:     ${DB_PORT:-5432}
+      REDIS_URL:   "redis://redis:6379/0"
+    depends_on:
+      app-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.backend.rule=Host(`${API_HOST}`)"
+      - "traefik.http.routers.backend.entrypoints=websecure"
+      - "traefik.http.routers.backend.tls=true"
+      - "traefik.http.routers.backend.middlewares=api-headers@file,oauth2-auth@file"
+      - "traefik.http.services.backend.loadbalancer.server.port=8000"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── FRONTEND (Hardened Vite) ───────────────────────────────────────────────
+  frontend:
+    build:
+      context: ../frontend/
+    container_name: ${COMPOSE_PROJECT_NAME:-saas-prod}-frontend
+    restart: unless-stopped
+    networks: [proxy, internal]
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 128M
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.frontend.rule=Host(`${APP_HOST}`)"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls=true"
+      - "traefik.http.routers.frontend.middlewares=security-headers@file,rate-limit@file"
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:80/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5

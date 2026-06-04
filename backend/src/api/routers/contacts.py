@@ -19,7 +19,7 @@ class ContactResponse(BaseModel):
     created_at: str | None
 
 
-@router.get("/")
+@router.get("")
 def list_contacts(
     request: Request,
     channel_id: str = Query(None),
@@ -33,23 +33,19 @@ def list_contacts(
     if channel_id:
         q = q.filter(ContactModel.channel_id == channel_id)
 
-    total = q.count()
     rows = q.order_by(ContactModel.created_at.desc()).offset(offset).limit(limit).all()
 
-    return {
-        "total": total,
-        "items": [
-            {
-                "id": str(r.id),
-                "name": r.name,
-                "phone": r.phone,
-                "external_id": r.external_id,
-                "channel_id": str(r.channel_id),
-                "created_at": r.created_at.isoformat() if r.created_at else None,
-            }
-            for r in rows
-        ],
-    }
+    return [
+        {
+            "id": str(r.id),
+            "name": r.name,
+            "phone": r.phone,
+            "external_id": r.external_id,
+            "channel_id": str(r.channel_id),
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        }
+        for r in rows
+    ]
 
 
 @router.get("/{contact_id}")

@@ -6,7 +6,7 @@ from api.routers.auth import require_tenant
 router = APIRouter(prefix="/templates", tags=["templates"])
 
 
-@router.get("/")
+@router.get("")
 def list_templates(
     request: Request,
     db=Depends(lambda: None),

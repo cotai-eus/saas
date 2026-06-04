@@ -1,17 +1,32 @@
-FROM node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293 AS build
-WORKDIR /app
-COPY package.json ./
-RUN npm install
-COPY . .
-RUN npm run build
+# Stage 1: Build
+FROM oven/bun:canary-alpine@sha256:8e2c0cef20088df099bc360b15129df68945d3fec70e79b34ec5a252131a9b82 AS build
 
+WORKDIR /app
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile
+COPY . .
+RUN bun run build
+
+# Stage 2: Runtime
 FROM nginx:stable-alpine@sha256:5f979dcfed4ce6461873f087e8c980d6e29b084b9e8776d9704a7e989b5f4898
+
+# Create a non-root user
 RUN addgroup --system --gid 1001 app && \
     adduser --system --uid 1001 --ingroup app app && \
     mkdir -p /usr/share/nginx/html && \
-    chown app:app /usr/share/nginx/html
+    chown app:app /usr/share/nginx/html && \
+    # Give permissions to the app user for Nginx temp directories
+    touch /var/run/nginx.pid && \
+    chown app:app /var/run/nginx.pid && \
+    chown -R app:app /var/cache/nginx
+
 COPY --from=build --chown=app:app /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/nginx.conf
+
 USER app
 EXPOSE 80
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+  CMD wget --quiet --tries=1 --spider http://localhost:80/ || exit 1
+
 CMD ["nginx", "-g", "daemon off;"]

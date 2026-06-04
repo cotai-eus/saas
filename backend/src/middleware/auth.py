@@ -1,4 +1,7 @@
 import logging
+import re
+import uuid as uuid_lib
+
 from jose import jwt
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
@@ -7,35 +10,70 @@ from starlette.responses import Response, JSONResponse
 logger = logging.getLogger(__name__)
 
 
+def _resolve_tenant_id(keycloak_user_id: str, email: str | None) -> str | None:
+    from infrastructure.database.session import SessionFactory
+    from infrastructure.database.models.tenant import Tenant as TenantModel
+    from infrastructure.database.models.user import User as UserModel
+
+    db = SessionFactory()
+    try:
+        user = (
+            db.query(UserModel)
+            .filter(UserModel.keycloak_user_id == keycloak_user_id)
+            .first()
+        )
+        if user:
+            return str(user.tenant_id)
+
+        name = f"{email.split('@')[0] if email else 'Default'}'s Workspace"
+        slug = (email.split("@")[0] if email else "default").lower()
+        slug = re.sub(r"[^a-z0-9-]", "", slug)[:42] or "workspace"
+        slug = f"{slug}-{uuid_lib.uuid4().hex[:8]}"
+
+        tenant = TenantModel(name=name, slug=slug)
+        db.add(tenant)
+        db.flush()
+
+        user = UserModel(
+            tenant_id=tenant.id,
+            keycloak_user_id=keycloak_user_id,
+            email=email or "",
+        )
+        db.add(user)
+        db.commit()
+
+        logger.info("Auto-provisioned tenant=%s user=%s", tenant.id, keycloak_user_id)
+        return str(tenant.id)
+    except Exception:
+        logger.exception("Failed to resolve tenant_id for %s", keycloak_user_id)
+        db.rollback()
+        return None
+    finally:
+        db.close()
+
+
 class ProxyAuthMiddleware(BaseHTTPMiddleware):
-    """
-    Middleware to extract user information from headers provided by Traefik/OAuth2-Proxy.
-    Assumes the request has already been authenticated by the proxy.
-    """
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
-        # Extract basic user info from Traefik/OAuth2-Proxy headers
         user_id = request.headers.get("X-Auth-Request-User")
         email = request.headers.get("X-Auth-Request-Email")
         groups_raw = request.headers.get("X-Auth-Request-Groups", "")
         groups = [g.strip() for g in groups_raw.split(",") if g.strip()]
-        
-        # If headers are missing, try to extract from JWT without verification 
-        # (since it was already verified by the proxy)
+
         tenant_id = None
         roles = []
-        
+        keycloak_user_id = None
+
         auth_header = request.headers.get("Authorization", "")
         if auth_header.startswith("Bearer "):
             token = auth_header.removeprefix("Bearer ")
             try:
-                # Get unverified claims since signature was already checked by Traefik
                 claims = jwt.get_unverified_claims(token)
                 tenant_id = claims.get("tenant_id")
                 roles = claims.get("realm_roles", [])
-                
-                # Fallback for user_id/email if headers are missing
+                keycloak_user_id = claims.get("sub")
+
                 if not user_id:
                     user_id = claims.get("sub")
                 if not email:
@@ -48,7 +86,9 @@ class ProxyAuthMiddleware(BaseHTTPMiddleware):
                     status_code=401, content={"detail": "Invalid or expired token"}
                 )
 
-        # Allow X-Tenant-ID header to override for development or specific cases
+        if not tenant_id and keycloak_user_id:
+            tenant_id = _resolve_tenant_id(keycloak_user_id, email)
+
         header_tenant_id = request.headers.get("X-Tenant-ID")
         if header_tenant_id:
             tenant_id = header_tenant_id

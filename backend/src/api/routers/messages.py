@@ -96,7 +96,7 @@ def send_message(
     return MessageResponse(id=str(result.id), status=result.status.value)
 
 
-@router.get("/")
+@router.get("")
 def list_messages(
     request: Request,
     channel_id: str = Query(None),
@@ -113,24 +113,24 @@ def list_messages(
     if status:
         q = q.filter(MessageModel.status == status)
 
-    total = q.count()
     rows = q.order_by(MessageModel.created_at.desc()).offset(offset).limit(limit).all()
 
-    return {
-        "total": total,
-        "items": [
-            {
-                "id": str(r.id),
-                "channel_id": str(r.channel_id),
-                "direction": r.direction,
-                "content_type": r.content_type,
-                "content_text": r.content_text,
-                "status": r.status,
-                "created_at": r.created_at.isoformat() if r.created_at else None,
-            }
-            for r in rows
-        ],
-    }
+    return [
+        {
+            "id": str(r.id),
+            "channel_id": str(r.channel_id),
+            "direction": r.direction,
+            "content_type": r.content_type,
+            "text": r.content_text,
+            "media_url": r.content_media_url,
+            "status": r.status,
+            "sent_at": r.sent_at.isoformat() if r.sent_at else None,
+            "delivered_at": r.delivered_at.isoformat() if r.delivered_at else None,
+            "read_at": r.read_at.isoformat() if r.read_at else None,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        }
+        for r in rows
+    ]
 
 
 @router.get("/{message_id}")

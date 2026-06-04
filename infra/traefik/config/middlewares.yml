@@ -35,7 +35,7 @@ http:
         contentTypeNosniff: true
         browserXssFilter: true
         referrerPolicy: "strict-origin-when-cross-origin"
-        contentSecurityPolicy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+        contentSecurityPolicy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://app.localhost; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
         permissionsPolicy: "camera=(), microphone=(), geolocation=(), payment=()"
         customResponseHeaders:
           X-Powered-By: ""

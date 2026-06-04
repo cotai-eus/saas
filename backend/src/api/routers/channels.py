@@ -33,7 +33,7 @@ class ChannelResponse(BaseModel):
     created_at: str | None
 
 
-@router.post("/", response_model=ChannelResponse)
+@router.post("", response_model=ChannelResponse)
 def create_channel(
     body: CreateChannelRequest,
     request: Request,
@@ -62,7 +62,7 @@ def create_channel(
     )
 
 
-@router.get("/")
+@router.get("")
 def list_channels(request: Request, db=Depends(get_db)):
     tenant_id = require_tenant(request)
 
@@ -71,19 +71,16 @@ def list_channels(request: Request, db=Depends(get_db)):
         .filter(ChannelModel.tenant_id == tenant_id)
         .all()
     )
-    return {
-        "total": len(rows),
-        "items": [
-            ChannelResponse(
-                id=str(r.id),
-                type=r.type,
-                name=r.name,
-                status=r.status,
-                created_at=r.created_at.isoformat() if r.created_at else None,
-            )
-            for r in rows
-        ],
-    }
+    return [
+        {
+            "id": str(r.id),
+            "type": r.type,
+            "name": r.name,
+            "status": r.status,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        }
+        for r in rows
+    ]
 
 
 @router.get("/{channel_id}")

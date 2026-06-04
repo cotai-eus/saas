@@ -12,12 +12,12 @@ logger = logging.getLogger(__name__)
 
 API_PREFIX = "/api/v1"
 
-app = FastAPI(title="SaaS Backend")
+app = FastAPI(title="SaaS Backend", redirect_slashes=False)
 
 app.add_middleware(ProxyAuthMiddleware)
 
 app.include_router(health.router)
-app.include_router(auth.router)
+app.include_router(auth.router, prefix=API_PREFIX)
 app.include_router(channels.router, prefix=API_PREFIX)
 app.include_router(messages.router, prefix=API_PREFIX)
 app.include_router(contacts.router, prefix=API_PREFIX)
