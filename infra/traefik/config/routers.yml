@@ -1,0 +1,39 @@
+# =============================================================================
+# traefik/config/routers.yml — Additional Dynamic Routers & Middlewares
+# =============================================================================
+
+http:
+
+  middlewares:
+
+    redirect-localhost-to-app:
+      redirectRegex:
+        regex: '^https?://[^/]+(/.*)$'
+        replacement: 'https://app.{{ env "BASE_DOMAIN" }}$1'
+        permanent: true
+
+    redirect-traefik-port-to-https:
+      redirectRegex:
+        regex: '^https?://[^/]+(:[0-9]+)?(/.*)$'
+        replacement: 'https://traefik.{{ env "BASE_DOMAIN" }}$2'
+        permanent: true
+
+  routers:
+
+    localhost-redirect:
+      rule: "Host(`localhost`)"
+      entryPoints:
+        - websecure
+      middlewares:
+        - redirect-localhost-to-app
+      service: noop@internal
+      priority: 1
+
+    traefik-port-dashboard-redirect:
+      rule: "PathPrefix(`/dashboard`) || PathPrefix(`/api`)"
+      entryPoints:
+        - traefik
+      middlewares:
+        - redirect-traefik-port-to-https
+      service: noop@internal
+      priority: 1

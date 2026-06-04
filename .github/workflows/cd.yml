@@ -32,15 +32,6 @@ jobs:
           echo "TLS_RESOLVER=letsencrypt"            >> $GITHUB_ENV
 
       - name: Deployment Bootstrap
-        env:
-          BASE_DOMAIN: ${{ vars.BASE_DOMAIN }}
-          KC_DB_PASSWORD: ${{ secrets.KC_DB_PASSWORD }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          KC_ADMIN_PASSWORD: ${{ secrets.KC_ADMIN_PASSWORD }}
-          OAUTH2_PROXY_CLIENT_SECRET: ${{ secrets.OAUTH2_PROXY_CLIENT_SECRET }}
-          OAUTH2_PROXY_COOKIE_SECRET: ${{ secrets.OAUTH2_PROXY_COOKIE_SECRET }}
-          SAAS_API_CLIENT_SECRET: ${{ secrets.SAAS_API_CLIENT_SECRET }}
-          TRAEFIK_DASHBOARD_PASSWORD_HASH: ${{ secrets.TRAEFIK_DASHBOARD_PASSWORD_HASH }}
         run: |
           ./ctl setup --domain "$BASE_DOMAIN" --env prod --no-interactive --skip-tls
           cd infra && docker compose up -d --build
@@ -66,15 +57,6 @@ jobs:
           echo "TLS_RESOLVER=letsencrypt"            >> $GITHUB_ENV
 
       - name: Deployment Bootstrap
-        env:
-          BASE_DOMAIN: ${{ vars.BASE_DOMAIN }}
-          KC_DB_PASSWORD: ${{ secrets.KC_DB_PASSWORD }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          KC_ADMIN_PASSWORD: ${{ secrets.KC_ADMIN_PASSWORD }}
-          OAUTH2_PROXY_CLIENT_SECRET: ${{ secrets.OAUTH2_PROXY_CLIENT_SECRET }}
-          OAUTH2_PROXY_COOKIE_SECRET: ${{ secrets.OAUTH2_PROXY_COOKIE_SECRET }}
-          SAAS_API_CLIENT_SECRET: ${{ secrets.SAAS_API_CLIENT_SECRET }}
-          TRAEFIK_DASHBOARD_PASSWORD_HASH: ${{ secrets.TRAEFIK_DASHBOARD_PASSWORD_HASH }}
         run: |
           ./ctl setup --domain "$BASE_DOMAIN" --env prod --no-interactive --skip-tls
           cd infra && docker compose up -d --build

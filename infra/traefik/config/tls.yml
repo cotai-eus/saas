@@ -1,0 +1,10 @@
+# =============================================================================
+# traefik/config/tls.yml — Dynamic TLS Configuration
+# =============================================================================
+# Default TLS store for development (mkcert wildcard certificate)
+tls:
+  stores:
+    default:
+      defaultCertificate:
+        certFile: /certs/wildcard.crt
+        keyFile:  /certs/wildcard.key

@@ -30,8 +30,6 @@ entryPoints:
     address: ":443"
     http:
       tls: {}
-      middlewares:
-        - security-headers@file
     transport:
       respondingTimeouts:
         readTimeout: 30s
@@ -57,15 +55,7 @@ certificatesResolvers:
       httpChallenge:
         entryPoint: web
 
-  # Development: Static certs (mkcert) — handled by default tls store below
-
-# Certificados estáticos (dev/mkcert)
-tls:
-  stores:
-    default:
-      defaultCertificate:
-        certFile: /certs/wildcard.crt
-        keyFile:  /certs/wildcard.key
+  # Development: Static certs (mkcert) — handled by tls.yml (dynamic)
 
 log:
   level: INFO
