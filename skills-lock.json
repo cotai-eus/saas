@@ -6,6 +6,18 @@
       "sourceType": "github",
       "skillPath": "plugins/python-development/skills/python-design-patterns/SKILL.md",
       "computedHash": "593f109cffd8f81019e364102ee239053c7f4477c8ad901b9551fc4afaf22bd0"
+    },
+    "rest-api-design": {
+      "source": "aj-geddes/useful-ai-prompts",
+      "sourceType": "github",
+      "skillPath": "skills/rest-api-design/SKILL.md",
+      "computedHash": "e249c58df5d9d59407fc4de70b0d75bb336d917bbe0a75695d6ec8cf13cfaf35"
+    },
+    "writing-plans": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "skillPath": "skills/writing-plans/SKILL.md",
+      "computedHash": "2b986445454a025ca2c3839f8a2024747e8cce0517948437232cd113d2719060"
     }
   }
 }

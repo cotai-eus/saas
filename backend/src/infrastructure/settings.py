@@ -10,6 +10,14 @@ class Settings(BaseSettings):
     db_name: str = "saas"
     auth_host: str = "auth.local.dev"
 
+    redis_url: str = "redis://localhost:6379/0"
+    queue_backend: str = "redis"
+
+    baileys_service_url: str = "http://baileys:3000"
+    baileys_api_key: str = ""
+
+    channel_config_encryption_key: str = ""
+
     @property
     def resolved_database_url(self) -> str:
         if self.database_url:

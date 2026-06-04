@@ -17,6 +17,11 @@ import infrastructure.database.models.subscription
 import infrastructure.database.models.session
 import infrastructure.database.models.api_key
 import infrastructure.database.models.feature_flag
+import infrastructure.database.models.channel
+import infrastructure.database.models.message
+import infrastructure.database.models.conversation
+import infrastructure.database.models.contact
+import infrastructure.database.models.webhook_event
 
 
 def find_infra_env() -> Path | None:

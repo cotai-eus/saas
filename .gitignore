@@ -36,4 +36,4 @@ skills-lock.json
 agent/dist/
 agent/node_modules/
 agent/.env
-./key.md
+key.md
