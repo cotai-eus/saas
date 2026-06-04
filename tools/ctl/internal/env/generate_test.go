@@ -20,9 +20,6 @@ func TestGenerateDev(t *testing.T) {
 	if !strings.Contains(content, "AUTH_HOST=auth.local.dev") {
 		t.Errorf("expected AUTH_HOST=auth.local.dev")
 	}
-	if strings.Contains(content, "TLS_RESOLVER=letsencrypt") {
-		t.Errorf("dev env should not set letsencrypt resolver")
-	}
 }
 
 func TestGenerateProd(t *testing.T) {
@@ -33,9 +30,6 @@ func TestGenerateProd(t *testing.T) {
 	}
 	content := string(result.Content)
 
-	if !strings.Contains(content, "TLS_RESOLVER=letsencrypt") {
-		t.Errorf("prod env should set letsencrypt resolver")
-	}
 	if !strings.Contains(content, "OAUTH2_PROXY_SSL_INSECURE=false") {
 		t.Errorf("prod env should set SSL insecure false")
 	}
@@ -93,19 +87,6 @@ func TestGenerateStaging(t *testing.T) {
 	}
 	if !strings.Contains(content, "TRAEFIK_HOST=traefik.staging.example.com") {
 		t.Errorf("expected staging traefik host")
-	}
-}
-
-func TestGenerateNoTLSInDev(t *testing.T) {
-	cfg := Config{BaseDomain: "local.dev", EnvType: "dev"}
-	result, err := Generate(cfg)
-	if err != nil {
-		t.Fatalf("Generate failed: %v", err)
-	}
-	content := string(result.Content)
-
-	if strings.Contains(content, "TLS_RESOLVER=letsencrypt") {
-		t.Errorf("dev should not have letsencrypt TLS resolver")
 	}
 }
 

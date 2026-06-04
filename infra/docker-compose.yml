@@ -99,7 +99,15 @@ services:
     entrypoint: ["/bin/bash", "-c"]
     command:
       - |
-        envsubst < /opt/keycloak/data/import/realm-template.json \
+        mkdir -p /opt/keycloak/data/import
+        rm -f /opt/keycloak/data/import/*.json
+        sed \
+          -e 's|$${AUTH_HOST}|'"$$AUTH_HOST"'|g' \
+          -e 's|$${APP_HOST}|'"$$APP_HOST"'|g' \
+          -e 's|$${BASE_DOMAIN}|'"$$BASE_DOMAIN"'|g' \
+          -e 's|$${OAUTH2_PROXY_CLIENT_SECRET}|'"$$OAUTH2_PROXY_CLIENT_SECRET"'|g' \
+          -e 's|$${SAAS_API_CLIENT_SECRET}|'"$$SAAS_API_CLIENT_SECRET"'|g' \
+          /opt/keycloak/data/templates/realm-template.json \
           > /opt/keycloak/data/import/realm-saas.json
         exec /opt/keycloak/bin/kc.sh start --import-realm
     environment:
@@ -114,7 +122,7 @@ services:
       KC_HOSTNAME:         ${AUTH_HOST}
       KC_HOSTNAME_STRICT:  "true"
       KC_CACHE:            local
-      KC_FEATURES:         token-exchange,admin-fine-grained-authz
+      KC_FEATURES:         admin-fine-grained-authz
       KC_LOG_LEVEL:        INFO
       KC_HEALTH_ENABLED:   "true"
       KC_METRICS_ENABLED:  "true"
@@ -126,7 +134,8 @@ services:
       SAAS_API_CLIENT_SECRET:     ${SAAS_API_CLIENT_SECRET:?required}
     volumes:
       - keycloak_data:/opt/keycloak/data
-      - ./keycloak/realm-template.json:/opt/keycloak/data/import/realm-template.json:ro
+      - ./keycloak/templates:/opt/keycloak/data/templates:ro
+      - ./keycloak/import:/opt/keycloak/data/import
     depends_on:
       keycloak-db:
         condition: service_healthy
@@ -136,7 +145,6 @@ services:
       - "traefik.http.routers.keycloak.rule=Host(`${AUTH_HOST}`)"
       - "traefik.http.routers.keycloak.entrypoints=websecure"
       - "traefik.http.routers.keycloak.tls=true"
-      - "traefik.http.routers.keycloak.middlewares=security-headers@file"
       - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
     healthcheck:
       test:

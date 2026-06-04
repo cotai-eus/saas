@@ -1,0 +1,111 @@
+{
+  "realm": "saas",
+  "displayName": "SaaS Platform",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "maxFailureWaitSeconds": 900,
+  "failureFactor": 5,
+  "accessTokenLifespan": 300,
+  "revokeRefreshToken": true,
+
+  "clients": [
+    {
+      "clientId": "oauth2-proxy",
+      "name": "OAuth2 Proxy",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "52ef2c1509863ea6369ca51a7b184ecc",
+      "redirectUris": [
+        "https://app.localhost/oauth2/callback"
+      ],
+      "webOrigins": [
+        "https://app.localhost"
+      ],
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": false,
+      "defaultClientScopes": ["web-origins", "acr", "profile", "roles", "email"],
+      "optionalClientScopes": ["address", "phone", "offline_access"],
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "config": {
+            "full.path": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "groups",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "audience-oauth2-proxy",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "oauth2-proxy",
+            "id.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "saas-api",
+      "name": "SaaS API",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "7b495287cbe6ddb2eb0dc64c68de5427",
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "serviceAccountsEnabled": true,
+      "fullScopeAllowed": false
+    }
+  ],
+
+  "groups": [
+    { "name": "app-users", "path": "/app-users" },
+    { "name": "admins",    "path": "/admins"    }
+  ],
+
+  "roles": {
+    "realm": [
+      { "name": "user",  "description": "Standard User" },
+      { "name": "admin", "description": "Administrator"  }
+    ]
+  },
+
+  "users": [
+    {
+      "username": "test-user",
+      "email": "test@localhost",
+      "firstName": "Test",
+      "lastName": "User",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "Test@12345678", "temporary": true }
+      ],
+      "realmRoles": ["user"],
+      "groups": ["/app-users"]
+    }
+  ],
+
+  "passwordPolicy": "length(12) and upperCase(1) and lowerCase(1) and digits(1) and specialChars(1) and notUsername(undefined)",
+  "loginTheme": "keycloak",
+  "internationalizationEnabled": true,
+  "supportedLocales": ["pt-BR", "en"],
+  "defaultLocale": "pt-BR"
+}

@@ -55,12 +55,6 @@ func Generate(cfg Config) (*Result, error) {
 			value = "api." + cfg.BaseDomain
 		case "TRAEFIK_HOST":
 			value = "traefik." + cfg.BaseDomain
-		case "TLS_RESOLVER":
-			if cfg.EnvType == "prod" {
-				value = "letsencrypt"
-			} else {
-				value = ""
-			}
 		case "LETSENCRYPT_EMAIL":
 			if value == "" {
 				value = "admin@" + cfg.BaseDomain
