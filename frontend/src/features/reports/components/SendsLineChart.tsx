@@ -14,8 +14,34 @@ const mockData = [
   { date: '07/06', sent: 300, delivered: 280, replied: 110 },
 ];
 
+const CHART_COLORS = {
+  brand: '#00C853',
+  info: '#2962FF',
+  warning: '#FF6D00',
+  border: '#E1E4E8',
+  textMuted: '#8B98A5',
+  bgBase: '#FAFAFA',
+};
+
+const DARK_CHART_COLORS = {
+  brand: '#00E676',
+  info: '#448AFF',
+  warning: '#FF9100',
+  border: '#30363D',
+  textMuted: '#6B7280',
+  bgBase: '#0A0E17',
+};
+
+function getColors() {
+  if (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    return DARK_CHART_COLORS;
+  }
+  return CHART_COLORS;
+}
+
 export function SendsLineChart({ data }: SendsLineChartProps) {
   const chartData = data || mockData;
+  const colors = getColors();
 
   return (
     <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-base)] border border-[var(--color-border)] p-[var(--space-4)]">
@@ -24,21 +50,21 @@ export function SendsLineChart({ data }: SendsLineChartProps) {
       </h3>
       <ResponsiveContainer width="100%" height={280}>
         <LineChart data={chartData}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-          <XAxis dataKey="date" tick={{ fontSize: 12, fill: 'var(--color-text-muted)' }} />
-          <YAxis tick={{ fontSize: 12, fill: 'var(--color-text-muted)' }} />
+          <CartesianGrid strokeDasharray="3 3" stroke={colors.border} />
+          <XAxis dataKey="date" tick={{ fontSize: 12, fill: colors.textMuted }} />
+          <YAxis tick={{ fontSize: 12, fill: colors.textMuted }} />
           <Tooltip
             contentStyle={{
-              background: 'var(--color-bg-base)',
-              border: '1px solid var(--color-border)',
+              background: colors.bgBase,
+              border: `1px solid ${colors.border}`,
               borderRadius: '8px',
               fontSize: '13px',
             }}
           />
           <Legend />
-          <Line type="monotone" dataKey="sent" stroke="var(--color-brand)" strokeWidth={2} name="Enviadas" dot={false} />
-          <Line type="monotone" dataKey="delivered" stroke="var(--color-info)" strokeWidth={2} name="Entregues" dot={false} />
-          <Line type="monotone" dataKey="replied" stroke="var(--color-warning)" strokeWidth={2} name="Respondidas" dot={false} />
+          <Line type="monotone" dataKey="sent" stroke={colors.brand} strokeWidth={2} name="Enviadas" dot={false} />
+          <Line type="monotone" dataKey="delivered" stroke={colors.info} strokeWidth={2} name="Entregues" dot={false} />
+          <Line type="monotone" dataKey="replied" stroke={colors.warning} strokeWidth={2} name="Respondidas" dot={false} />
         </LineChart>
       </ResponsiveContainer>
     </div>

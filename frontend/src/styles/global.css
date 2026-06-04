@@ -1,34 +1,36 @@
 :root {
-  --color-brand: #25D366;
-  --color-brand-dark: #128C7E;
-  --color-brand-light: #DCF8C6;
+  --color-brand: #00C853;
+  --color-brand-dark: #009624;
+  --color-brand-light: #B9F6CA;
+  --color-accent: #FF6D00;
+  --color-accent-light: #FFE0B2;
 
-  --color-bg-base: #FFFFFF;
-  --color-bg-subtle: #F7F8FA;
-  --color-bg-muted: #EFF0F3;
+  --color-bg-base: #FAFAFA;
+  --color-bg-subtle: #F0F2F5;
+  --color-bg-muted: #E4E7EB;
 
-  --color-text-primary: #111827;
-  --color-text-secondary: #6B7280;
-  --color-text-muted: #9CA3AF;
+  --color-text-primary: #0F1419;
+  --color-text-secondary: #536471;
+  --color-text-muted: #8B98A5;
 
-  --color-border: #E5E7EB;
-  --color-border-strong: #D1D5DB;
+  --color-border: #E1E4E8;
+  --color-border-strong: #C4C9D0;
 
-  --color-success: #10B981;
-  --color-success-bg: #ECFDF5;
-  --color-warning: #F59E0B;
-  --color-warning-bg: #FFFBEB;
-  --color-danger: #EF4444;
-  --color-danger-bg: #FEF2F2;
-  --color-info: #3B82F6;
-  --color-info-bg: #EFF6FF;
+  --color-success: #00C853;
+  --color-success-bg: #E8F5E9;
+  --color-warning: #FF6D00;
+  --color-warning-bg: #FFF3E0;
+  --color-danger: #D50000;
+  --color-danger-bg: #FFEBEE;
+  --color-info: #2962FF;
+  --color-info-bg: #E3F2FD;
 
-  --color-status-active: #10B981;
-  --color-status-scheduled: #3B82F6;
-  --color-status-paused: #F59E0B;
-  --color-status-done: #6B7280;
-  --color-status-draft: #9CA3AF;
-  --color-status-error: #EF4444;
+  --color-status-active: #00C853;
+  --color-status-scheduled: #2962FF;
+  --color-status-paused: #FF6D00;
+  --color-status-done: #536471;
+  --color-status-draft: #8B98A5;
+  --color-status-error: #D50000;
 
   --space-1: 4px;
   --space-2: 8px;
@@ -44,7 +46,8 @@
   --radius-lg: 12px;
   --radius-xl: 16px;
 
-  --font-sans: 'DM Sans', system-ui, sans-serif;
+  --font-display: 'Clash Display', system-ui, sans-serif;
+  --font-body: 'Sora', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
   --font-size-xs: 11px;
   --font-size-sm: 13px;
@@ -57,19 +60,50 @@
   --sidebar-width: 240px;
   --sidebar-collapsed-width: 64px;
 
-  --shadow-sm: 0 1px 3px rgba(0,0,0,.07);
-  --shadow-md: 0 4px 12px rgba(0,0,0,.08);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.06);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.07);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,.09);
+
+  --toast-success-bg: #E8F5E9;
+  --toast-success-text: #1B5E20;
+  --toast-error-bg: #FFEBEE;
+  --toast-error-text: #B71C1C;
+  --toast-info-bg: #E3F2FD;
+  --toast-info-text: #0D47A1;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-bg-base: #0F1117;
-    --color-bg-subtle: #161B22;
-    --color-bg-muted: #21262D;
-    --color-text-primary: #F0F6FC;
-    --color-text-secondary: #8B949E;
-    --color-border: #30363D;
-    --color-border-strong: #484F58;
+    --color-brand: #00E676;
+    --color-brand-dark: #00C853;
+    --color-brand-light: #1B5E20;
+    --color-accent: #FF9100;
+    --color-accent-light: #4E342E;
+
+    --color-bg-base: #0A0E17;
+    --color-bg-subtle: #111827;
+    --color-bg-muted: #1F2937;
+    --color-text-primary: #F3F4F6;
+    --color-text-secondary: #9CA3AF;
+    --color-text-muted: #6B7280;
+    --color-border: #1F2937;
+    --color-border-strong: #374151;
+
+    --color-success-bg: #064E3B;
+    --color-warning-bg: #3E2723;
+    --color-danger-bg: #4A1414;
+    --color-info-bg: #0D2137;
+
+    --shadow-sm: 0 1px 3px rgba(0,0,0,.3);
+    --shadow-md: 0 4px 12px rgba(0,0,0,.4);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,.5);
+
+    --toast-success-bg: #064E3B;
+    --toast-success-text: #A7F3D0;
+    --toast-error-bg: #4A1414;
+    --toast-error-text: #FECACA;
+    --toast-info-bg: #0D2137;
+    --toast-info-text: #BFDBFE;
   }
 }
 
@@ -86,20 +120,28 @@ html {
 }
 
 body {
-  font-family: var(--font-sans);
+  font-family: var(--font-body);
   font-size: var(--font-size-base);
   color: var(--color-text-primary);
   background: var(--color-bg-base);
   line-height: 1.5;
 }
 
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
 a {
   color: var(--color-brand-dark);
   text-decoration: none;
+  transition: color 0.15s ease;
 }
 
 a:hover {
-  text-decoration: underline;
+  color: var(--color-brand);
+  text-decoration: none;
 }
 
 button {
@@ -110,6 +152,68 @@ button {
 :focus-visible {
   outline: 2px solid var(--color-brand);
   outline-offset: 2px;
+}
+
+::selection {
+  background: var(--color-brand-light);
+  color: var(--color-text-primary);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(100%); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes toastEnter {
+  from { opacity: 0; transform: translateX(100%); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes toastExit {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(100%); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out both;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.5s ease-out both;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.3s ease-out both;
 }
 
 @media (prefers-reduced-motion: reduce) {

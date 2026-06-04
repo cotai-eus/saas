@@ -20,7 +20,7 @@ export function TopBar() {
 
   const title = Object.entries(pageTitles).find(([path]) =>
     location.pathname.startsWith(path)
-  )?.[1] || 'SaaS Platform';
+  )?.[1] || 'ChannelFlow';
 
   return (
     <header className="flex items-center h-14 px-[var(--space-4)] bg-[var(--color-bg-base)] border-b border-[var(--color-border)]">

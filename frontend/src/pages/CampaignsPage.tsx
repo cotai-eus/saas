@@ -29,18 +29,18 @@ export default function CampaignsPage() {
   );
 
   return (
-    <div className="flex flex-col gap-[var(--space-4)]">
+    <div className="flex flex-col gap-[var(--space-4)] animate-fade-in">
       <div className="flex items-center justify-between">
-        <div className="flex gap-[var(--space-1)]">
+        <div className="flex gap-[var(--space-1)] bg-[var(--color-bg-subtle)] rounded-[var(--radius-md)] p-[var(--space-1)]">
           {FILTERS.map((f) => (
             <button
               key={f.value}
               onClick={() => setFilter(f.value)}
               className={cn(
-                'px-[var(--space-3)] py-[var(--space-1)] rounded-[var(--radius-md)] text-[var(--font-size-sm)] font-medium transition-colors border-none',
+                'px-[var(--space-3)] py-[var(--space-1)] rounded-[var(--radius-sm)] text-[var(--font-size-sm)] font-medium transition-colors border-none',
                 filter === f.value
-                  ? 'bg-[var(--color-brand)] text-white'
-                  : 'bg-[var(--color-bg-subtle)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-muted)]',
+                  ? 'bg-[var(--color-bg-base)] text-[var(--color-text-primary)] shadow-[var(--shadow-sm)]'
+                  : 'bg-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
               )}
             >
               {f.label}
@@ -58,10 +58,10 @@ export default function CampaignsPage() {
           placeholder="Buscar campanhas..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg-base)] px-[var(--space-3)] py-[var(--space-2)] pl-[var(--space-8)] text-[var(--font-size-base)]"
+          className="w-full rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg-base)] px-[var(--space-3)] py-[var(--space-2)] pl-[var(--space-8)] text-[var(--font-size-base)] placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-brand)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand)]/20 transition-colors"
         />
         <svg
-          className="absolute left-[var(--space-2)] top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]"
+          className="absolute left-[var(--space-2)] top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] pointer-events-none"
           width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
         >
           <circle cx="11" cy="11" r="8" />

@@ -11,10 +11,19 @@ const mockData = [
   { name: 'Instagram', value: 5 },
 ];
 
-const COLORS = ['var(--color-brand)', 'var(--color-info)', 'var(--color-warning)', 'var(--color-danger)'];
+const CHART_COLORS = ['#00C853', '#2962FF', '#FF6D00', '#D50000'];
+const DARK_CHART_COLORS = ['#00E676', '#448AFF', '#FF9100', '#FF5252'];
+
+function getColors() {
+  if (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    return DARK_CHART_COLORS;
+  }
+  return CHART_COLORS;
+}
 
 export function ChannelMixPieChart({ data }: ChannelMixPieChartProps) {
   const chartData = data || mockData;
+  const colors = getColors();
 
   return (
     <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-base)] border border-[var(--color-border)] p-[var(--space-4)]">
@@ -33,7 +42,7 @@ export function ChannelMixPieChart({ data }: ChannelMixPieChartProps) {
             dataKey="value"
           >
             {chartData.map((_, index) => (
-              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+              <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
             ))}
           </Pie>
           <Tooltip

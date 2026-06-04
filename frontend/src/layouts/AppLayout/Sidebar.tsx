@@ -59,9 +59,14 @@ export function Sidebar() {
         isMobile && !mobileOpen && '-translate-x-full',
       )}
     >
-      <div className="flex items-center h-14 px-[var(--space-4)] border-b border-[var(--color-border)]">
-        <span className={cn('font-bold text-[var(--color-brand)] text-[var(--font-size-lg)]', collapsed && !isMobile && 'hidden')}>
-          SaaS
+      <div className="flex items-center h-14 px-[var(--space-4)] border-b border-[var(--color-border)] gap-[var(--space-2)]">
+        <div className={cn('w-7 h-7 rounded-[var(--radius-sm)] bg-[var(--color-brand)] flex items-center justify-center shrink-0', collapsed && !isMobile && 'mx-auto')}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+          </svg>
+        </div>
+        <span className={cn('font-bold font-[var(--font-display)] text-[var(--color-brand)] text-[var(--font-size-lg)] tracking-tight', collapsed && !isMobile && 'hidden')}>
+          ChannelFlow
         </span>
         <button
           onClick={isMobile ? () => setMobileOpen(false) : toggleSidebar}
@@ -116,10 +121,10 @@ export function Sidebar() {
         {(!collapsed || isMobile) && (
           <div className="flex-1 min-w-0">
             <p className="text-[var(--font-size-sm)] font-medium text-[var(--color-text-primary)] truncate">
-              {user?.email}
+              {user?.email?.split('@')[0] || 'Usuário'}
             </p>
             <p className="text-[var(--font-size-xs)] text-[var(--color-text-muted)] truncate">
-              {user?.email}
+              {user?.roles?.includes('admin') ? 'Administrador' : 'Membro'}
             </p>
           </div>
         )}

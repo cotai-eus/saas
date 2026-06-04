@@ -3,6 +3,7 @@ import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 import { useUIStore } from '../../shared/store';
 import { useMediaQuery } from '../../shared/hooks';
+import { ToastContainer } from '../../shared/components/ui';
 
 export default function AppLayout() {
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
@@ -22,6 +23,7 @@ export default function AppLayout() {
           <Outlet />
         </main>
       </div>
+      <ToastContainer />
     </div>
   );
 }

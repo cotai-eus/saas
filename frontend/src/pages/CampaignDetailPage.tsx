@@ -20,7 +20,7 @@ export default function CampaignDetailPage() {
   }
 
   return (
-    <div className="flex flex-col gap-[var(--space-6)]">
+    <div className="flex flex-col gap-[var(--space-6)] animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
           <button
@@ -30,7 +30,7 @@ export default function CampaignDetailPage() {
             ← Voltar
           </button>
           <div className="flex items-center gap-[var(--space-3)]">
-            <h1 className="text-[var(--font-size-xl)] font-bold text-[var(--color-text-primary)]">
+            <h1 className="text-[var(--font-size-xl)] font-bold font-[var(--font-display)] text-[var(--color-text-primary)] tracking-tight">
               {campaign.name}
             </h1>
             <CampaignStatusBadge status={campaign.status} />
@@ -40,21 +40,21 @@ export default function CampaignDetailPage() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-[var(--space-4)]">
-        <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-base)] border border-[var(--color-border)] p-[var(--space-4)]">
+        <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-base)] border border-[var(--color-border)] p-[var(--space-4)] animate-slide-up" style={{ animationDelay: '0.05s' }}>
           <p className="text-[var(--font-size-xs)] text-[var(--color-text-muted)] mb-[var(--space-1)]">Total de contatos</p>
-          <p className="text-[var(--font-size-lg)] font-semibold">{formatNumber(campaign.recipient_count)}</p>
+          <p className="text-[var(--font-size-lg)] font-semibold font-[var(--font-display)]">{formatNumber(campaign.recipient_count)}</p>
         </div>
-        <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-base)] border border-[var(--color-border)] p-[var(--space-4)]">
+        <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-base)] border border-[var(--color-border)] p-[var(--space-4)] animate-slide-up" style={{ animationDelay: '0.1s' }}>
           <p className="text-[var(--font-size-xs)] text-[var(--color-text-muted)] mb-[var(--space-1)]">Enviadas</p>
-          <p className="text-[var(--font-size-lg)] font-semibold">{formatNumber(campaign.sent_count)}</p>
+          <p className="text-[var(--font-size-lg)] font-semibold font-[var(--font-display)]">{formatNumber(campaign.sent_count)}</p>
         </div>
-        <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-base)] border border-[var(--color-border)] p-[var(--space-4)]">
+        <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-base)] border border-[var(--color-border)] p-[var(--space-4)] animate-slide-up" style={{ animationDelay: '0.15s' }}>
           <p className="text-[var(--font-size-xs)] text-[var(--color-text-muted)] mb-[var(--space-1)]">Entregues</p>
-          <p className="text-[var(--font-size-lg)] font-semibold">{formatNumber(campaign.delivered_count)}</p>
+          <p className="text-[var(--font-size-lg)] font-semibold font-[var(--font-display)]">{formatNumber(campaign.delivered_count)}</p>
         </div>
-        <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-base)] border border-[var(--color-border)] p-[var(--space-4)]">
+        <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-base)] border border-[var(--color-border)] p-[var(--space-4)] animate-slide-up" style={{ animationDelay: '0.2s' }}>
           <p className="text-[var(--font-size-xs)] text-[var(--color-text-muted)] mb-[var(--space-1)]">Entrega</p>
-          <p className="text-[var(--font-size-lg)] font-semibold">
+          <p className="text-[var(--font-size-lg)] font-semibold font-[var(--font-display)]">
             {campaign.sent_count > 0
               ? `${Math.round((campaign.delivered_count / campaign.sent_count) * 100)}%`
               : '—'}
@@ -62,7 +62,7 @@ export default function CampaignDetailPage() {
         </div>
       </div>
 
-      <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-base)] border border-[var(--color-border)] p-[var(--space-4)]">
+      <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-base)] border border-[var(--color-border)] p-[var(--space-4)] animate-fade-in" style={{ animationDelay: '0.25s' }}>
         <h3 className="text-[var(--font-size-base)] font-semibold mb-[var(--space-3)]">Detalhes</h3>
         <dl className="grid grid-cols-1 md:grid-cols-2 gap-[var(--space-3)]">
           <div>

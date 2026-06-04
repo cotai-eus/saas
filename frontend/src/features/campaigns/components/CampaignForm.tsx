@@ -1,7 +1,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Button, Input } from '../../../shared/components/ui';
+import { Button, Input, Select, Textarea } from '../../../shared/components/ui';
 import type { CampaignFormData } from '../types';
 
 const schema = z.object({
@@ -12,6 +12,17 @@ const schema = z.object({
   contact_ids: z.array(z.string()).min(1, 'Selecione ao menos um contato'),
   scheduled_at: z.string().optional(),
 });
+
+const channelOptions = [
+  { value: 'wa-1', label: 'WhatsApp - Comercial' },
+  { value: 'wa-2', label: 'WhatsApp - Suporte' },
+  { value: 'tg-1', label: 'Telegram - Geral' },
+];
+
+const contentTypeOptions = [
+  { value: 'text', label: 'Texto' },
+  { value: 'template', label: 'Template' },
+];
 
 interface CampaignFormProps {
   onSubmit: (data: CampaignFormData) => void;
@@ -38,38 +49,28 @@ export function CampaignForm({ onSubmit, loading }: CampaignFormProps) {
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-[var(--space-4)]">
       <Input
         label="Nome da campanha"
+        placeholder="Ex: Black Friday 2024"
         error={errors.name?.message}
         {...register('name')}
       />
-      <Input
-        label="ID do Canal"
+      <Select
+        label="Canal"
+        placeholder="Selecione um canal"
+        options={channelOptions}
         error={errors.channel_id?.message}
         {...register('channel_id')}
       />
-      <div className="flex flex-col gap-[var(--space-1)]">
-        <label className="text-[var(--font-size-sm)] font-medium text-[var(--color-text-secondary)]">
-          Tipo de conteúdo
-        </label>
-        <select
-          className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg-base)] px-[var(--space-3)] py-[var(--space-2)] text-[var(--font-size-base)]"
-          {...register('content_type')}
-        >
-          <option value="text">Texto</option>
-          <option value="template">Template</option>
-        </select>
-      </div>
-      <div className="flex flex-col gap-[var(--space-1)]">
-        <label className="text-[var(--font-size-sm)] font-medium text-[var(--color-text-secondary)]">
-          Mensagem
-        </label>
-        <textarea
-          className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg-base)] px-[var(--space-3)] py-[var(--space-2)] text-[var(--font-size-base)] min-h-[100px] resize-y"
-          {...register('text')}
-        />
-        {errors.text && (
-          <span className="text-[var(--font-size-xs)] text-[var(--color-danger)]">{errors.text.message}</span>
-        )}
-      </div>
+      <Select
+        label="Tipo de conteúdo"
+        options={contentTypeOptions}
+        {...register('content_type')}
+      />
+      <Textarea
+        label="Mensagem"
+        placeholder="Digite a mensagem da campanha..."
+        error={errors.text?.message}
+        {...register('text')}
+      />
       <Input
         label="Agendamento (opcional)"
         type="datetime-local"

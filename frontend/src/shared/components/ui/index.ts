@@ -5,3 +5,7 @@ export { Modal } from './Modal';
 export { Spinner, FullPageSpinner } from './Spinner';
 export { EmptyState } from './EmptyState';
 export { StatCard } from './StatCard';
+export { Select } from './Select';
+export { Textarea } from './Textarea';
+export { ToastContainer } from './Toast';
+export { SearchIcon, CloseIcon, ChevronDownIcon, MenuIcon, AlertIcon, CheckIcon } from './Icons';
